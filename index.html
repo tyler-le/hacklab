@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackLab - Security Training</title>
+<!-- v2.1 -->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #00ff41;
+    --green-dim: #00aa2a;
+    --green-dark: #003b00;
+    --red: #ff3333;
+    --amber: #ffaa00;
+    --cyan: #00e5ff;
+    --bg: #0a0a0a;
+    --panel: #0f0f0f;
+    --border: #1a3a1a;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Fira Mono', 'Courier New', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* CRT scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.15) 2px,
+      rgba(0, 0, 0, 0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    height: 100vh;
+  }
+
+  .main-split {
+    display: flex;
+    min-height: 0;
+    gap: 0;
+  }
+
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    min-height: 0;
+    flex: 1 1 50%;
+  }
+
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    min-height: 0;
+    flex: 1 1 50%;
+  }
+
+  /* Drag handles */
+  .resize-handle-h {
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+
+  .resize-handle-h::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 40px;
+    background: var(--border);
+    border-radius: 1px;
+    transition: background 0.2s, height 0.2s;
+  }
+
+  .resize-handle-h:hover::after,
+  .resize-handle-h.active::after {
+    background: var(--green-dim);
+    height: 60px;
+  }
+
+  .resize-handle-v {
+    height: 6px;
+    cursor: row-resize;
+    background: transparent;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+
+  .resize-handle-v::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    transition: background 0.2s, width 0.2s;
+  }
+
+  .resize-handle-v:hover::after,
+  .resize-handle-v.active::after {
+    background: var(--green-dim);
+    width: 60px;
+  }
+
+  /* Header */
+  .header {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
+
+  .logo {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  .logo span { color: var(--red); }
+
+  .stage-indicator {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .stage-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--green-dim);
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .stage-dot:hover {
+    border-color: var(--green);
+    transform: scale(1.2);
+  }
+
+  .stage-dot .stage-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-size: 0.65rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-bottom: 6px;
+    pointer-events: none;
+  }
+
+  .stage-dot:hover .stage-tooltip { display: block; }
+
+  .stage-dot.completed { background: var(--green); border-color: var(--green); }
+  .stage-dot.active { border-color: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+  /* Panels */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--green-dim);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Mission briefing (left column, full height) */
+  .mission-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .mission-text {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .mission-text .highlight { color: var(--amber); font-weight: 700; }
+  .mission-text .cmd { color: var(--cyan); }
+
+  /* SQL Query visualizer (top of right column) */
+  .query-panel {
+    flex: 0 0 auto;
+    min-height: 80px;
+    overflow-y: auto;
+  }
+
+  .query-display {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 80px;
+    position: relative;
+  }
+
+  .query-display .editor-topbar {
+    display: flex;
+    align-items: center;
+    background: #2d2d2d;
+    border-bottom: 1px solid #333;
+    padding: 5px 12px;
+    font-size: 0.7rem;
+    color: #888;
+    gap: 10px;
+  }
+
+  .query-display .editor-topbar .tab {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-bottom: 1px solid #1e1e1e;
+    border-radius: 4px 4px 0 0;
+    padding: 3px 12px;
+    color: #ccc;
+    font-size: 0.72rem;
+    margin-bottom: -6px;
+  }
+
+  .query-display .editor-body {
+    display: flex;
+    min-height: 60px;
+  }
+
+  .query-display .line-numbers {
+    padding: 12px 0;
+    text-align: right;
+    color: #555;
+    font-size: 0.78rem;
+    user-select: none;
+    min-width: 36px;
+    border-right: 1px solid #333;
+    background: #1e1e1e;
+  }
+
+  .query-display .line-numbers div {
+    padding: 0 8px;
+    line-height: 1.7;
+  }
+
+  .query-display .code-area {
+    padding: 12px 14px;
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* VS Code Dark+ inspired token colors */
+  .query-display .sql-keyword { color: #569cd6; }
+  .query-display .sql-function { color: #dcdcaa; }
+  .query-display .sql-string { color: #ce9178; }
+  .query-display .sql-number { color: #b5cea8; }
+  .query-display .sql-operator { color: #d4d4d4; }
+  .query-display .sql-comment { color: #6a9955; font-style: italic; }
+  .query-display .sql-identifier { color: #9cdcfe; }
+  .query-display .sql-star { color: #d4d4d4; }
+  .query-display .sql-paren { color: #ffd700; }
+  .query-display .sql-comma { color: #d4d4d4; }
+  .query-display .sql-injection { color: #f44747; background: rgba(244, 71, 71, 0.1); border-radius: 2px; }
+  .query-display .sql-default { color: #d4d4d4; }
+
+  .query-label {
+    display: none;
+  }
+
+  .query-result {
+    background: #050505;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 0.8rem;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+
+  .query-result.error { border-color: var(--red); color: var(--red); }
+  .query-result.success { border-color: var(--green); }
+
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  .result-table th {
+    text-align: left;
+    color: var(--cyan);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 8px;
+  }
+
+  .result-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #111;
+  }
+
+  /* Interaction panel tabs */
+  .interaction-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--green-dim);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .interaction-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .interaction-tab {
+    padding: 8px 18px;
+    font-family: inherit;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--green-dim);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .interaction-tab:hover { color: var(--green); }
+  .interaction-tab.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+
+  .tab-content {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .tab-content.active {
+    display: flex;
+  }
+
+  /* Terminal (inside tab) */
+  .terminal-panel {
+    flex: 1;
+    min-height: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .terminal-scroll {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .terminal-output {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .terminal-output .sys { color: var(--green-dim); }
+  .terminal-output .err { color: var(--red); }
+  .terminal-output .warn { color: var(--amber); }
+  .terminal-output .info { color: var(--cyan); }
+  .terminal-output .success { color: var(--green); font-weight: 700; }
+
+  .terminal-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    min-height: 1.6em;
+  }
+
+  .prompt-symbol {
+    color: var(--green);
+    font-weight: 700;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+  }
+
+  .terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--green);
+    font-family: inherit;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    caret-color: var(--green);
+  }
+
+  .terminal-input::placeholder { color: var(--green-dark); }
+
+  /* Hint button */
+  .hint-btn {
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .hint-btn:hover { background: rgba(255, 170, 0, 0.15); }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+
+  /* Login form UI (inside tab) */
+  .login-ui {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 340px;
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 32px 28px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  .login-card .login-logo {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .login-card .login-logo .company {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #ccc;
+    letter-spacing: 2px;
+  }
+
+  .login-card .login-logo .subtitle {
+    font-size: 0.7rem;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  .login-field {
+    margin-bottom: 16px;
+  }
+
+  .login-field label {
+    display: block;
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .login-field input {
+    width: 100%;
+    background: #0f0f0f;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 10px 12px;
+    color: #ddd;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .login-field input:focus {
+    border-color: #569cd6;
+  }
+
+  .login-submit {
+    width: 100%;
+    background: #2a5a8a;
+    border: none;
+    border-radius: 4px;
+    padding: 10px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    transition: background 0.2s;
+  }
+
+  .login-submit:hover { background: #3a6a9a; }
+
+  .login-error {
+    color: var(--red);
+    font-size: 0.78rem;
+    text-align: center;
+    margin-top: 12px;
+    min-height: 1.2em;
+  }
+
+  .login-url {
+    text-align: center;
+    font-size: 0.68rem;
+    color: #555;
+    margin-bottom: 16px;
+    padding: 6px;
+    background: #111;
+    border-radius: 4px;
+    border: 1px solid #222;
+  }
+
+  .login-url span { color: #888; }
+
+  /* URL Bar UI (inside tab) */
+  .urlbar-ui {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .urlbar-container {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .urlbar-prefix {
+    padding: 10px 2px 10px 12px;
+    color: #888;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .urlbar-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ddd;
+    font-family: inherit;
+    font-size: 0.82rem;
+    padding: 10px 12px 10px 0;
+  }
+
+  .urlbar-input::placeholder { color: #444; }
+
+  .urlbar-go {
+    background: #2a5a8a;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 10px 18px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+  }
+
+  .urlbar-go:hover { background: #3a6a9a; }
+
+  .urlbar-response {
+    flex: 1;
+    overflow-y: auto;
+    background: #0a0a0a;
+    border: 1px solid #222;
+    border-radius: 6px;
+    padding: 16px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--green-dim);
+  }
+
+  .urlbar-response .sys { color: var(--green-dim); }
+  .urlbar-response .err { color: var(--red); }
+  .urlbar-response .warn { color: var(--amber); }
+  .urlbar-response .info { color: var(--cyan); }
+  .urlbar-response .success { color: var(--green); font-weight: 700; }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--green-dark); border-radius: 3px; }
+
+  /* Typing animation */
+  @keyframes blink { 50% { opacity: 0; } }
+  .cursor-blink::after {
+    content: '_';
+    animation: blink 1s step-end infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="logo">HACK<span>LAB</span> v1.0</div>
+    <div class="controls">
+      <button class="hint-btn" onclick="showHint()">HINT</button>
+      <div class="stage-indicator" id="stageIndicator"></div>
+    </div>
+  </div>
+
+  <div class="main-split">
+    <div class="left-col">
+      <div class="panel mission-panel">
+        <div class="panel-title">Mission Briefing</div>
+        <div class="mission-text" id="missionText"></div>
+      </div>
+      <!-- debrief modal is positioned fixed, outside flow -->
+    </div>
+
+    <div class="resize-handle-h" id="hHandle"></div>
+
+    <div class="right-col">
+      <div class="panel query-panel">
+        <div class="panel-title">SQL Query Monitor</div>
+        <div class="query-display" id="queryDisplay">
+          <div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>
+          <div class="editor-body">
+            <div class="line-numbers"><div>1</div></div>
+            <div class="code-area"><span class="sql-comment">-- Waiting for input...</span></div>
+          </div>
+        </div>
+        <div class="query-label">Query Result</div>
+        <div class="query-result" id="queryResult">
+          <span style="color: var(--green-dim)">No queries executed yet.</span>
+        </div>
+      </div>
+
+      <div class="resize-handle-v" id="vHandle"></div>
+
+      <div class="interaction-panel">
+        <div class="interaction-tabs">
+          <button class="interaction-tab active" data-tab="terminal" onclick="switchTab('terminal')">Terminal</button>
+          <button class="interaction-tab" data-tab="urlbar" onclick="switchTab('urlbar')" style="display:none">Browser</button>
+          <button class="interaction-tab" data-tab="browser" onclick="switchTab('browser')" style="display:none">Login Form</button>
+        </div>
+
+        <div class="tab-content active" id="tabTerminal">
+          <div class="terminal-panel">
+            <div class="terminal-scroll" id="terminalScroll">
+              <div class="terminal-output" id="terminalOutput"></div>
+              <div class="terminal-input-row">
+                <span class="prompt-symbol">hacklab&gt;</span>
+                <input type="text" class="terminal-input" id="terminalInput"
+                       placeholder="Type a command..." autofocus
+                       onkeydown="if(event.key==='Enter')handleInput()">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabUrlbar">
+          <div class="urlbar-ui">
+            <div class="urlbar-container">
+              <span class="urlbar-prefix">https://portal.megacorp.local</span>
+              <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/profile?id=1"
+                     onkeydown="if(event.key==='Enter')submitUrlbar()">
+              <button class="urlbar-go" onclick="submitUrlbar()">Go</button>
+            </div>
+            <div class="urlbar-response" id="urlbarResponse">
+              <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabBrowser">
+          <div class="login-ui" id="loginUI">
+            <div class="login-url"><span>https://</span>portal.megacorp.local/login</div>
+            <div class="login-card">
+              <!-- TODO: remove before deploy -->
+              <!-- default test account: admin / password123 -->
+              <div class="login-logo">
+                <div class="company">MEGACORP</div>
+                <div class="subtitle">Employee Portal</div>
+              </div>
+              <div class="login-field">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="Enter username"
+                       onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+              </div>
+              <div class="login-field">
+                <label>Password</label>
+                <input type="password" id="loginPass" placeholder="Enter password"
+                       onkeydown="if(event.key==='Enter')submitLoginForm()">
+              </div>
+              <button class="login-submit" onclick="submitLoginForm()">Sign In</button>
+              <div class="login-error" id="loginError"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ========== MOCK DATABASE ==========
+const DB = {
+  users: [
+    { id: 1, username: 'jsmith',    password: 'p@ssw0rd123',    role: 'employee',  email: 'jsmith@megacorp.com',    department: 'Sales' },
+    { id: 2, username: 'amendes',   password: 'sunshine99',     role: 'employee',  email: 'amendes@megacorp.com',   department: 'Marketing' },
+    { id: 3, username: 'kwilson',   password: 'baseball2024',   role: 'manager',   email: 'kwilson@megacorp.com',   department: 'Engineering' },
+    { id: 4, username: 'admin',     password: 'S3cur3#Admin!',  role: 'admin',     email: 'admin@megacorp.com',     department: 'IT' },
+    { id: 5, username: 'dbrown',    password: 'qwerty456',      role: 'employee',  email: 'dbrown@megacorp.com',    department: 'HR' },
+  ],
+  sessions: [],
+  audit_log: [],
+};
+
+// ========== MINI SQL ENGINE ==========
+// Parses the *constructed* SQL string (after injection) and runs it against DB
+function executeSql(rawSql) {
+  const sql = rawSql.trim();
+  const upper = sql.toUpperCase();
+
+  // SELECT queries
+  if (upper.startsWith('SELECT')) {
+    return executeSelect(sql);
+  }
+  // UPDATE queries
+  if (upper.startsWith('UPDATE')) {
+    return executeUpdate(sql);
+  }
+  return { error: `Unsupported query type` };
+}
+
+function executeSelect(sql) {
+  const upper = sql.toUpperCase();
+
+  // Handle UNION-based queries
+  if (upper.includes('UNION')) {
+    return executeUnion(sql);
+  }
+
+  // Parse: SELECT <cols> FROM <table> WHERE <conditions>
+  const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?(?:\s+LIMIT\s+(\d+))?$/i);
+  if (!selectMatch) return { error: `Syntax error in SQL query` };
+
+  const [, colsPart, table, wherePart, limit] = selectMatch;
+  const data = DB[table];
+  if (!data) return { error: `Table '${table}' does not exist` };
+
+  let rows = [...data];
+  if (wherePart) {
+    rows = filterRows(rows, wherePart);
+  }
+
+  if (limit) rows = rows.slice(0, parseInt(limit));
+
+  const cols = parseColumns(colsPart, data);
+  return { rows, cols, table };
+}
+
+function parseColumns(colsPart, sampleData) {
+  if (colsPart.trim() === '*') {
+    return sampleData.length > 0 ? Object.keys(sampleData[0]) : [];
+  }
+  return colsPart.split(',').map(c => c.trim());
+}
+
+function filterRows(rows, wherePart) {
+  // Strip trailing comments (-- ...)
+  let cond = wherePart.replace(/--.*$/, '').trim();
+  if (cond.endsWith(';')) cond = cond.slice(0, -1).trim();
+
+  // Split by OR (simple)
+  const orParts = cond.split(/\s+OR\s+/i);
+
+  return rows.filter(row => {
+    return orParts.some(part => evaluateCondition(row, part.trim()));
+  });
+}
+
+function evaluateCondition(row, cond) {
+  // Handle AND
+  const andParts = cond.split(/\s+AND\s+/i);
+  return andParts.every(part => evaluateSingle(row, part.trim()));
+}
+
+function evaluateSingle(row, cond) {
+  // Handle tautologies
+  if (/^1\s*=\s*1$/.test(cond) || /^'.*'\s*=\s*'.*'$/.test(cond)) {
+    const parts = cond.split('=').map(s => s.trim());
+    return parts[0] === parts[1] || cond.includes('1=1') || cond.match(/^1\s*=\s*1$/);
+  }
+  if (/^\d+\s*=\s*\d+$/.test(cond)) {
+    const [a, b] = cond.split('=').map(s => parseInt(s.trim()));
+    return a === b;
+  }
+
+  // Handle col = 'value'
+  const match = cond.match(/^(\w+)\s*=\s*'([^']*)'$/);
+  if (match) {
+    return String(row[match[1]]) === match[2];
+  }
+
+  // Handle col = number
+  const numMatch = cond.match(/^(\w+)\s*=\s*(\d+)$/);
+  if (numMatch) {
+    return row[numMatch[1]] == numMatch[2];
+  }
+
+  return false;
+}
+
+function executeUnion(sql) {
+  const parts = sql.split(/\s+UNION\s+(ALL\s+)?SELECT\s+/i);
+  // Execute first SELECT
+  const firstResult = executeSelect(parts[0]);
+  if (firstResult.error) return firstResult;
+
+  // Parse the union part
+  const unionSql = 'SELECT ' + parts[parts.length - 1];
+  const unionResult = executeSelect(unionSql);
+  if (unionResult.error) return unionResult;
+
+  return {
+    rows: [...firstResult.rows, ...unionResult.rows],
+    cols: firstResult.cols.length >= unionResult.cols.length ? firstResult.cols : unionResult.cols,
+  };
+}
+
+function executeUpdate(sql) {
+  const match = sql.match(/UPDATE\s+(\w+)\s+SET\s+(\w+)\s*=\s*'([^']+)'\s+WHERE\s+(\w+)\s*=\s*'([^']+)'/i);
+  if (!match) return { error: 'Syntax error in UPDATE statement' };
+
+  const [, table, setCol, setVal, whereCol, whereVal] = match;
+  const data = DB[table];
+  if (!data) return { error: `Table '${table}' does not exist` };
+
+  let count = 0;
+  data.forEach(row => {
+    if (String(row[whereCol]) === whereVal) {
+      row[setCol] = setVal;
+      count++;
+    }
+  });
+
+  return { updated: count, message: `${count} row(s) updated.` };
+}
+
+// Builds the SQL query as the vulnerable app would
+function buildLoginQuery(username, password) {
+  return `SELECT * FROM users WHERE username='${username}' AND password='${password}'`;
+}
+
+function buildSearchQuery(searchTerm) {
+  return `SELECT username, email, department FROM users WHERE username='${searchTerm}'`;
+}
+
+// ========== STAGE DEFINITIONS ==========
+const STAGES = [
+  {
+    id: 'intro',
+    title: 'Stage 1: Information Leakage',
+    mission: `<span class="highlight">OBJECTIVE:</span> Log in to the MegaCorp employee portal.
+
+Welcome, recruit! You've been hired to pen-test MegaCorp's security. Start by poking around their portal — see what information is publicly exposed.
+
+<span class="highlight">COMMANDS:</span>
+  <span class="cmd">login [username] [password]</span>  - attempt to log in
+  <span class="cmd">view-source</span>                  - view the page source code
+  <span class="cmd">help</span>                         - show available commands
+  <span class="cmd">hint</span>                         - get a hint
+
+<span class="highlight">TIP:</span> Before trying to break in, look around. Developers sometimes leave sensitive info where it shouldn't be. Try <span class="cmd">view-source</span> to inspect the page.`,
+    check(input) {
+      const parts = parseCommand(input);
+
+      if (parts.cmd === 'view-source') {
+        return {
+          query: null,
+          result: null,
+          pass: false,
+          terminalMsg:
+            `<span class="info">--- Page Source: portal.megacorp.local/login ---</span>` +
+            `\n<span class="sys">&lt;form action="/auth" method="POST"&gt;</span>` +
+            `\n<span class="sys">  &lt;input name="username" /&gt;</span>` +
+            `\n<span class="sys">  &lt;input name="password" type="password" /&gt;</span>` +
+            `\n<span class="sys">  &lt;!-- TODO: remove before deploy --&gt;</span>` +
+            `\n<span class="sys">  &lt;!-- default test account: admin / password123 --&gt;</span>` +
+            `\n<span class="sys">  &lt;button type="submit"&gt;Sign In&lt;/button&gt;</span>` +
+            `\n<span class="sys">&lt;/form&gt;</span>` +
+            `\n<span class="warn">Interesting... there's an HTML comment with credentials left in the source code!</span>`,
+        };
+      }
+
+      if (parts.cmd !== 'login') return null;
+      const username = parts.args[0] || '';
+      const password = parts.args[1] || '';
+
+      // Accept the leaked test credentials
+      if (username === 'admin' && password === 'password123') {
+        const query = buildLoginQuery(username, password);
+        return {
+          query,
+          result: { rows: [{ status: 'Login successful', user: 'admin', role: 'admin' }], cols: ['status', 'user', 'role'] },
+          pass: true,
+          terminalMsg: `<span class="success">ACCESS GRANTED!</span>\n<span class="info">Logged in as: admin (admin)</span>\n<span class="warn">You found credentials hidden in the page source!</span>`,
+        };
+      }
+
+      const query = buildLoginQuery(username, password);
+      return {
+        query,
+        result: { error: 'Invalid username or password.' },
+        pass: false,
+        terminalMsg: `<span class="err">Access denied. Invalid credentials.</span>\n<span class="sys">Have you tried inspecting the page source?</span>`,
+      };
+    },
+    hints: [
+      "Try the view-source command to look at the login page's HTML.",
+      "Developers sometimes leave comments in HTML with useful information...",
+      "The source code contains: <!-- default test account: admin / password123 -->",
+    ],
+    success: {
+      title: 'Information Leakage Exploited!',
+      subtitle: 'You found credentials hidden in the page source code.',
+      explanation: `You found credentials in an HTML comment. This is information leakage — sensitive data exposed in places anyone can look.
+
+Anyone can right-click "View Source" on any webpage. Comments, hidden fields, and JS source code are all sent to the browser — they're not secret.
+
+DEFENSE: Never put secrets in client-side code. Use environment variables and strip comments from production builds.`,
+    },
+  },
+  {
+    id: 'idor',
+    title: 'Stage 2: Broken Access Control',
+    mission: `<span class="highlight">OBJECTIVE:</span> Access another employee's profile to find sensitive data.
+
+You're now logged into the MegaCorp portal as <span class="cmd">jsmith</span>. You can see your own employee profile at:
+<span class="cmd">portal.megacorp.local/profile?id=1</span>
+
+Notice the <span class="cmd">id=1</span> in the URL. That's your user ID. What happens if you change it?
+
+<span class="highlight">COMMANDS:</span>
+  <span class="cmd">visit [url]</span>  - visit a URL on the portal
+  <span class="cmd">help</span>        - show available commands
+  <span class="cmd">hint</span>        - get a hint
+
+<span class="highlight">TIP:</span> Switch to the <span class="cmd">Browser</span> tab to use the URL bar, or type <span class="cmd">visit /profile?id=1</span> in the terminal.
+Try other IDs. The admin account might have some interesting info...`,
+    check(input) {
+      const parts = parseCommand(input);
+      if (parts.cmd !== 'visit') return null;
+      const url = parts.args[0] || '';
+
+      // Parse id from URL
+      const idMatch = url.match(/[?&]id=(\d+)/);
+
+      if (!idMatch) {
+        // No id parameter
+        if (url.includes('/profile')) {
+          return {
+            query: null, result: null, pass: false,
+            terminalMsg: `<span class="err">400 Bad Request: Missing required parameter 'id'</span>\n<span class="sys">Try: visit /profile?id=1</span>`,
+          };
+        }
+        if (url.includes('/admin')) {
+          return {
+            query: null, result: null, pass: false,
+            terminalMsg: `<span class="err">403 Forbidden: Admin panel access denied.</span>\n<span class="sys">Hmm, there IS an admin panel... but it's locked down. Try exploring user profiles instead.</span>`,
+          };
+        }
+        return {
+          query: null, result: null, pass: false,
+          terminalMsg: `<span class="err">404 Not Found: ${escapeHtml(url)}</span>`,
+        };
+      }
+
+      const id = parseInt(idMatch[1]);
+      const user = DB.users.find(u => u.id === id);
+
+      if (!user) {
+        return {
+          query: null, result: null, pass: false,
+          terminalMsg: `<span class="sys">200 OK — Profile page loaded</span>\n<span class="err">No employee found with id=${id}.</span>\n<span class="sys">There are 5 employees in the system. Keep trying different IDs.</span>`,
+        };
+      }
+
+      // Build the profile display
+      const isAdmin = user.role === 'admin';
+      let profileLines = [
+        `<span class="sys">200 OK — Profile page loaded</span>`,
+        ``,
+        `<span class="info">══ Employee Profile ══</span>`,
+        `  <span class="info">Name:</span>       ${user.username}`,
+        `  <span class="info">Email:</span>      ${user.email}`,
+        `  <span class="info">Department:</span> ${user.department}`,
+        `  <span class="info">Role:</span>       ${user.role}`,
+      ];
+
+      if (isAdmin) {
+        profileLines.push(``);
+        profileLines.push(`  <span class="warn">══ Admin Notes (internal) ══</span>`);
+        profileLines.push(`  <span class="warn">API Key:</span>    sk-megacorp-9f3k2j5h8d`);
+        profileLines.push(`  <span class="warn">SSH Access:</span> admin@10.0.0.2 (key-based)`);
+        profileLines.push(`  <span class="warn">DB Access:</span>  root:M3g4C0rp!@db.internal:3306`);
+        profileLines.push(``);
+        profileLines.push(`<span class="success">You accessed the admin's profile and found internal credentials!</span>`);
+      } else if (id !== 1) {
+        profileLines.push(``);
+        profileLines.push(`<span class="warn">You accessed someone else's profile! The server didn't check if you're allowed to view this.</span>`);
+        profileLines.push(`<span class="sys">Keep looking — try to find the admin account.</span>`);
+      }
+
+      return {
+        query: null,
+        result: isAdmin
+          ? { rows: [{ username: user.username, role: user.role, api_key: 'sk-megacorp-9f3k2j5h8d', db_password: 'M3g4C0rp!' }], cols: ['username', 'role', 'api_key', 'db_password'] }
+          : { rows: [{ username: user.username, email: user.email, department: user.department, role: user.role }], cols: ['username', 'email', 'department', 'role'] },
+        pass: isAdmin,
+        terminalMsg: profileLines.join('\n'),
+      };
+    },
+    hints: [
+      "Try visiting profiles with different IDs: visit /profile?id=2, visit /profile?id=3, etc.",
+      "There are 5 employees. The admin account has a special ID — try them all.",
+      "The admin is at id=4. Try: visit /profile?id=4",
+    ],
+    success: {
+      title: 'Broken Access Control Exploited!',
+      subtitle: "You accessed the admin's profile by changing a URL parameter.",
+      explanation: `You changed id=1 to id=4 in the URL and the server returned the admin's profile — it never checked if you were authorized to view it.
+
+This is called IDOR (Insecure Direct Object Reference), the #1 most common web vulnerability per OWASP. Sequential IDs make it trivial to enumerate every record.
+
+DEFENSE: Always check authorization on every request. Use random UUIDs instead of sequential IDs.`,
+    },
+  },
+  {
+    id: 'xss',
+    title: 'Stage 3: Cross-Site Scripting (XSS)',
+    mission: `<span class="highlight">OBJECTIVE:</span> Steal the admin's session cookie using XSS.
+
+MegaCorp's employee directory has a search feature. When you search for something, the page displays:
+<span class="cmd">"Showing results for: [YOUR SEARCH TERM]"</span>
+
+Your search term is placed directly into the HTML — without any sanitization. That means if you type HTML or JavaScript, the browser will execute it.
+
+<span class="highlight">HOW THIS LEADS TO COOKIE THEFT:</span>
+  1. You craft a search URL containing a <span class="cmd">&lt;script&gt;</span> tag
+  2. You send that URL to the admin (via email, chat, etc.)
+  3. When the admin clicks it, the script runs in THEIR browser
+  4. The script reads THEIR cookies and sends them to you
+  5. You use their session cookie to impersonate them
+
+For this exercise, inject a script that calls <span class="cmd">stealCookie()</span> — this simulates sending the admin's cookie to your server.
+
+<span class="highlight">COMMANDS:</span>
+  <span class="cmd">search [term]</span>  - search the employee directory
+  <span class="cmd">help</span>          - show available commands
+  <span class="cmd">hint</span>          - get a hint
+
+<span class="highlight">TIP:</span> Try searching for <span class="cmd">&lt;b&gt;test&lt;/b&gt;</span> first. Does the page render it as bold text, or show it as plain text?`,
+    check(input) {
+      const parts = parseCommand(input);
+      if (parts.cmd !== 'search') return null;
+      const term = parts.args[0] || '';
+
+      // Check if the input contains HTML tags
+      const hasHtml = /<[a-z][\s\S]*>/i.test(term);
+      const hasScript = /<script[\s>]/i.test(term);
+      const callsStealCookie = /stealCookie\s*\(/i.test(term);
+
+      // Build the "rendered page" output
+      const renderedTerm = hasHtml ? term : escapeHtml(term);
+
+      if (hasScript && callsStealCookie) {
+        return {
+          query: null,
+          result: { rows: [{ stolen_cookie: 'session=admin_8f3k9x2m7q; path=/; HttpOnly=false', user: 'admin' }], cols: ['stolen_cookie', 'user'] },
+          pass: true,
+          terminalMsg: [
+            `<span class="sys">200 OK — Search page loaded</span>`,
+            `<span class="sys">Showing results for: ${escapeHtml(term)}</span>`,
+            ``,
+            `<span class="warn">The browser executed your script in the admin's session!</span>`,
+            ``,
+            `<span class="success">Cookie stolen: session=admin_8f3k9x2m7q</span>`,
+            `<span class="success">You now have the admin's session token!</span>`,
+            `<span class="info">With this cookie, you can impersonate the admin without knowing their password.</span>`,
+          ].join('\n'),
+        };
+      }
+
+      if (hasScript) {
+        return {
+          query: null, result: null, pass: false,
+          terminalMsg: [
+            `<span class="sys">200 OK — Search page loaded</span>`,
+            `<span class="sys">Showing results for: ${escapeHtml(term)}</span>`,
+            ``,
+            `<span class="warn">Your script executed! But it didn't steal the cookie.</span>`,
+            `<span class="sys">Call the <span class="cmd">stealCookie()</span> function inside your script tag to capture the admin's session.</span>`,
+          ].join('\n'),
+        };
+      }
+
+      if (hasHtml) {
+        // They injected HTML but not a script
+        const isBold = /<b>/i.test(term);
+        const isImg = /<img/i.test(term);
+        return {
+          query: null, result: null, pass: false,
+          terminalMsg: [
+            `<span class="sys">200 OK — Search page loaded</span>`,
+            `<span class="sys">Showing results for: ${escapeHtml(term)}</span>`,
+            ``,
+            `<span class="warn">The page rendered your HTML! ${isBold ? 'The text appeared bold.' : isImg ? 'The browser tried to load your image tag.' : 'Your HTML was injected into the page.'}</span>`,
+            `<span class="info">This confirms the page is vulnerable to XSS. Now try injecting a &lt;script&gt; tag that calls stealCookie().</span>`,
+          ].join('\n'),
+        };
+      }
+
+      // Normal search, no injection
+      const results = DB.users.filter(u => u.username.includes(term) || u.department.toLowerCase().includes(term.toLowerCase()));
+      return {
+        query: null,
+        result: results.length > 0
+          ? { rows: results.map(u => ({ username: u.username, department: u.department })), cols: ['username', 'department'] }
+          : null,
+        pass: false,
+        terminalMsg: [
+          `<span class="sys">200 OK — Search page loaded</span>`,
+          `<span class="sys">Showing results for: ${escapeHtml(term)}</span>`,
+          results.length > 0
+            ? `<span class="info">Found ${results.length} result(s).</span>`
+            : `<span class="sys">No results found.</span>`,
+          ``,
+          `<span class="sys">The search term is displayed back on the page. What if it contained HTML or JavaScript code instead of plain text?</span>`,
+        ].join('\n'),
+      };
+    },
+    hints: [
+      "Try: search <b>test</b> — if the page renders it as bold, the page doesn't sanitize HTML input.",
+      "Now try a script tag: search &lt;script&gt;alert('xss')&lt;/script&gt; — does it execute?",
+      "Try: search &lt;script&gt;stealCookie()&lt;/script&gt;",
+    ],
+    success: {
+      title: 'XSS Attack Successful!',
+      subtitle: "You stole the admin's session cookie via cross-site scripting.",
+      explanation: `You injected &lt;script&gt;stealCookie()&lt;/script&gt; into the search field. The page displayed it without sanitizing, so the browser executed it as real JavaScript.
+
+In the real world, you'd embed this in a URL and send it to a victim. When they click it, the script runs in their browser and sends their session cookie to you. This is "Reflected XSS."
+
+DEFENSE: Escape all user input before rendering in HTML. Set HttpOnly on cookies. Use Content-Security-Policy headers.`,
+    },
+  },
+  {
+    id: 'sql_injection',
+    title: 'Stage 4: SQL Injection',
+    mission: `<span class="highlight">OBJECTIVE:</span> Use SQL injection to log in without knowing any password.
+
+MegaCorp's login form sends your input directly into a SQL query:
+<span class="cmd">SELECT * FROM users WHERE username='[INPUT]' AND password='[INPUT]'</span>
+
+Your input gets pasted between the quotes. The app then checks: "did the query return at least one user?" If yes, it logs you in as that user. It assumes the only way to get a result is with correct credentials — but what if you could rewrite the query itself?
+
+<span class="highlight">HOW THE LOGIN WORKS:</span>
+  1. You type a username and password
+  2. Your input is inserted into the SQL query above
+  3. The database runs the query
+  4. If any rows come back → you're logged in as the first result
+  5. If no rows → "access denied"
+
+The key insight: your input isn't just data — it becomes part of the SQL command. If you can break out of the quotes, you can change what the query does.
+
+<span class="highlight">COMMANDS:</span>
+  <span class="cmd">login [username]</span>  - attempt to log in
+  <span class="cmd">help</span>              - show available commands
+  <span class="cmd">hint</span>              - get a hint
+
+<span class="highlight">STEP 1:</span> Try <span class="cmd">login '</span> — type just a single quote as the username. What does the error tell you about how your input is used?
+
+<span class="highlight">STEP 2:</span> Now think: the query checks username AND password. What if you could make the WHERE clause return true without needing either? Try closing the string with <span class="cmd">'</span>, adding <span class="cmd">OR 1=1</span> (always true), and <span class="cmd">--</span> to comment out the rest.`,
+    check(input) {
+      const parts = parseCommand(input);
+      if (parts.cmd !== 'login') return null;
+      const username = parts.args[0] || '';
+      const password = parts.args[1] || '';
+      const query = buildLoginQuery(username, password);
+
+      // Check for OR tautology — this is the win condition
+      const hasOrTautology = /OR\s+[\d']\s*=\s*[\d']/i.test(query) || /OR\s+1\s*=\s*1/i.test(query);
+
+      if (hasOrTautology) {
+        const allUsers = DB.users;
+        return {
+          query,
+          result: { rows: [{ status: 'Login successful', user: allUsers[0].username, role: allUsers[0].role }], cols: ['status', 'user', 'role'] },
+          pass: true,
+          terminalMsg: `<span class="success">ACCESS GRANTED!</span>\n<span class="info">Logged in as: ${allUsers[0].username} (${allUsers[0].role})</span>\n<span class="warn">You bypassed authentication without knowing any password!</span>`,
+        };
+      }
+
+      // Check for unbalanced quotes — give a helpful SQL error
+      if (username.includes("'") || password.includes("'")) {
+        const quoteCount = (query.match(/'/g) || []).length;
+        if (quoteCount % 2 !== 0) {
+          return {
+            query,
+            result: { error: `ERROR 1064 (42000): You have an error in your SQL syntax near '${username.slice(0, 20)}' at line 1` },
+            pass: false,
+            terminalMsg: `<span class="err">Server returned error: SQL syntax error</span>\n<span class="warn">The server leaked a SQL error! This confirms user input goes directly into a SQL query. Now use that knowledge to craft an injection that bypasses the login.</span>`,
+          };
+        }
+      }
+
+      const result = executeSql(query);
+      const loginOk = result.rows && result.rows.length > 0;
+      return {
+        query,
+        result: loginOk
+          ? { rows: [{ status: 'Login successful', user: result.rows[0].username }], cols: ['status', 'user'] }
+          : { error: 'Invalid username or password.' },
+        pass: false,
+        terminalMsg: loginOk
+          ? `<span class="info">Login successful, but you used real credentials. Try bypassing the password check entirely with SQL injection!</span>`
+          : `<span class="err">Access denied.</span> <span class="sys">Try probing with a single quote first: login '</span>`,
+      };
+    },
+    hints: [
+      "First, probe: try login ' — the error reveals the query structure.",
+      "The query is: SELECT * FROM users WHERE username='INPUT' AND password='INPUT'. You control INPUT. What if your input closed the quote early and added OR 1=1?",
+      "Try: login ' OR 1=1 --\nThe ' closes the username string. OR 1=1 makes it always true. -- comments out the rest.",
+    ],
+    success: {
+      title: 'Authentication Bypassed!',
+      subtitle: 'You logged in without knowing any password using SQL injection.',
+      explanation: `Your input ' OR 1=1 -- turned the query into:
+  SELECT * FROM users WHERE username='' OR 1=1 --' AND password=''
+
+The ' closes the string, OR 1=1 is always true, and -- comments out the password check. The database returns all users and the app logs you in as the first one.
+
+DEFENSE: Use parameterized queries — never concatenate user input into SQL.`,
+    },
+  },
+  {
+    id: 'command_injection',
+    title: 'Stage 5: Command Injection',
+    mission: `<span class="highlight">OBJECTIVE:</span> Exploit a server diagnostic tool to read a secret file.
+
+MegaCorp has a "Server Health" page that lets admins ping hosts to check if they're online. The tool runs a system command on the server:
+
+<span class="cmd">ping -c 1 [YOUR INPUT]</span>
+
+Your input goes directly into a shell command. Sound familiar? Just like SQL injection put your input into a query, this puts your input into a terminal command.
+
+<span class="highlight">COMMANDS:</span>
+  <span class="cmd">ping [host]</span>    - run the server diagnostic tool
+  <span class="cmd">help</span>           - show available commands
+  <span class="cmd">hint</span>           - get a hint
+
+<span class="highlight">STEP 1:</span> Try <span class="cmd">ping localhost</span> — confirm the tool works normally.
+
+<span class="highlight">STEP 2:</span> In a terminal, you can chain commands with <span class="cmd">;</span> or <span class="cmd">&&</span>. What if your input wasn't just a hostname?
+
+<span class="highlight">GOAL:</span> There's a file at <span class="cmd">/etc/secrets/api_keys.txt</span> on the server. Read it.`,
+    check(input) {
+      const parts = parseCommand(input);
+      if (parts.cmd !== 'ping') return null;
+      const target = parts.rawArgs || '';
+
+      // Build the "shell command" the server would run
+      const shellCmd = `ping -c 1 ${target}`;
+
+      // Check if they injected a command separator
+      const hasSeparator = /[;&|]/.test(target);
+      const hasCat = /\bcat\b/.test(target);
+      const hasSecretFile = /\/etc\/secrets\/api_keys/.test(target);
+      const hasLs = /\bls\b/.test(target);
+      const hasWhoami = /\bwhoami\b/.test(target);
+      const hasId = /\bid\b/.test(target);
+      const hasPwd = /\bpwd\b/.test(target);
+      const hasEtc = /\/etc/.test(target);
+
+      // Win condition: cat the secret file
+      if (hasSeparator && hasCat && hasSecretFile) {
+        return {
+          query: null,
+          result: { rows: [
+            { file: '/etc/secrets/api_keys.txt', content: 'AWS_SECRET_KEY=AKIA3R9F8GHSL29XKMP4' },
+            { file: '/etc/secrets/api_keys.txt', content: 'STRIPE_LIVE_KEY=sk_live_4eC39HqLyjWDarjtT1' },
+            { file: '/etc/secrets/api_keys.txt', content: 'DATABASE_URL=postgres://admin:S3cretP@ss!@prod-db:5432/megacorp' },
+          ], cols: ['file', 'content'] },
+          pass: true,
+          terminalMsg: [
+            `<span class="sys">$ ${escapeHtml(shellCmd)}</span>`,
+            `<span class="sys">PING localhost (127.0.0.1): 56 data bytes</span>`,
+            `<span class="sys">64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=0.042 ms</span>`,
+            ``,
+            `<span class="warn">--- Injected command output ---</span>`,
+            `<span class="success">AWS_SECRET_KEY=AKIA3R9F8GHSL29XKMP4</span>`,
+            `<span class="success">STRIPE_LIVE_KEY=sk_live_4eC39HqLyjWDarjtT1</span>`,
+            `<span class="success">DATABASE_URL=postgres://admin:S3cretP@ss!@prod-db:5432/megacorp</span>`,
+            ``,
+            `<span class="success">You read the server's secret API keys!</span>`,
+          ].join('\n'),
+        };
+      }
+
+      // They injected a command but not the right one
+      if (hasSeparator) {
+        let injectedOutput = [];
+
+        if (hasWhoami) {
+          injectedOutput.push(`<span class="info">www-data</span>`);
+        }
+        if (hasId) {
+          injectedOutput.push(`<span class="info">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>`);
+        }
+        if (hasPwd) {
+          injectedOutput.push(`<span class="info">/var/www/megacorp</span>`);
+        }
+        if (hasLs && hasSecretFile) {
+          injectedOutput.push(`<span class="info">api_keys.txt</span>`);
+        } else if (hasLs && hasEtc) {
+          injectedOutput.push(`<span class="info">crontab  hostname  hosts  passwd  resolv.conf  secrets/</span>`);
+        } else if (hasLs) {
+          injectedOutput.push(`<span class="info">index.php  config.php  uploads/  logs/</span>`);
+        }
+        if (hasCat && !hasSecretFile) {
+          injectedOutput.push(`<span class="err">cat: file not found or access denied</span>`);
+          injectedOutput.push(`<span class="sys">Try reading /etc/secrets/api_keys.txt</span>`);
+        }
+
+        if (injectedOutput.length === 0) {
+          injectedOutput.push(`<span class="info">(command executed)</span>`);
+        }
+
+        return {
+          query: null, result: null, pass: false,
+          terminalMsg: [
+            `<span class="sys">$ ${escapeHtml(shellCmd)}</span>`,
+            `<span class="sys">PING localhost (127.0.0.1): 56 data bytes</span>`,
+            `<span class="sys">64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=0.042 ms</span>`,
+            ``,
+            `<span class="warn">--- Injected command output ---</span>`,
+            ...injectedOutput,
+            ``,
+            `<span class="warn">Your injected command ran on the server! Now try to read the secret file at /etc/secrets/api_keys.txt</span>`,
+          ].join('\n'),
+        };
+      }
+
+      // Normal ping, no injection
+      if (target === 'localhost' || target === '127.0.0.1') {
+        return {
+          query: null, result: null, pass: false,
+          terminalMsg: [
+            `<span class="sys">$ ${escapeHtml(shellCmd)}</span>`,
+            `<span class="sys">PING ${escapeHtml(target)} (127.0.0.1): 56 data bytes</span>`,
+            `<span class="sys">64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=0.042 ms</span>`,
+            `<span class="sys">--- ping statistics ---</span>`,
+            `<span class="sys">1 packets transmitted, 1 received, 0% packet loss</span>`,
+            ``,
+            `<span class="info">The server ran your input as part of a shell command. What if you added more commands after the hostname?</span>`,
+          ].join('\n'),
+        };
+      }
+
+      return {
+        query: null, result: null, pass: false,
+        terminalMsg: [
+          `<span class="sys">$ ${escapeHtml(shellCmd)}</span>`,
+          `<span class="sys">PING ${escapeHtml(target)}: 56 data bytes</span>`,
+          `<span class="sys">Request timeout for icmp_seq 0</span>`,
+          `<span class="sys">--- ping statistics ---</span>`,
+          `<span class="sys">1 packets transmitted, 0 received, 100% packet loss</span>`,
+          ``,
+          `<span class="sys">Host unreachable. Try pinging localhost first.</span>`,
+        ].join('\n'),
+      };
+    },
+    hints: [
+      "Start with: ping localhost — confirm the tool works. Notice how your input becomes part of a shell command.",
+      "In a shell, ; lets you run a second command after the first. Try: ping localhost; whoami",
+      "Now read the file: ping localhost; cat /etc/secrets/api_keys.txt",
+    ],
+    success: {
+      title: 'Command Injection Successful!',
+      subtitle: 'You executed arbitrary commands on the server and stole secret API keys.',
+      explanation: `The ; character tells the shell to run a second command. Your input turned the server command into:
+  ping -c 1 localhost; cat /etc/secrets/api_keys.txt
+
+The server expected a hostname but you injected a full shell command. This is the most dangerous class of vulnerability — it gives an attacker direct access to the server.
+
+DEFENSE: Never pass user input to shell commands. Use language-native libraries instead.
+
+Congratulations — you've completed all 5 stages of HackLab!`,
+    },
+  },
+];
+
+// ========== GAME STATE ==========
+let currentStage = 0;
+let hintIndex = 0;
+let commandHistory = [];
+let historyIndex = -1;
+let stageCompleted = false;
+const completedStages = new Set();
+const stageTerminalHistory = {};
+
+// ========== UI FUNCTIONS ==========
+function switchTab(tabName) {
+  document.querySelectorAll('.interaction-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+  if (tabName === 'terminal') {
+    document.getElementById('tabTerminal').classList.add('active');
+    document.querySelector('[data-tab="terminal"]').classList.add('active');
+    document.getElementById('terminalInput').focus();
+  } else if (tabName === 'urlbar') {
+    document.getElementById('tabUrlbar').classList.add('active');
+    document.querySelector('[data-tab="urlbar"]').classList.add('active');
+    document.getElementById('urlbarInput').focus();
+  } else if (tabName === 'browser') {
+    document.getElementById('tabBrowser').classList.add('active');
+    document.querySelector('[data-tab="browser"]').classList.add('active');
+    document.getElementById('loginUser').focus();
+  }
+}
+
+// Configure which tabs are visible per stage
+function updateTabsForStage(stageId) {
+  const termBtn = document.querySelector('[data-tab="terminal"]');
+  const urlBtn = document.querySelector('[data-tab="urlbar"]');
+  const browserBtn = document.querySelector('[data-tab="browser"]');
+
+  // Show all by default, then hide per stage
+  termBtn.style.display = '';
+  urlBtn.style.display = 'none';
+  browserBtn.style.display = 'none';
+
+  if (stageId === 'idor') {
+    urlBtn.style.display = '';
+  } else if (stageId === 'sql_injection') {
+    browserBtn.style.display = '';
+  }
+
+  // Default to terminal tab
+  switchTab('terminal');
+}
+
+function submitUrlbar() {
+  const urlInput = document.getElementById('urlbarInput');
+  const responseEl = document.getElementById('urlbarResponse');
+  let path = urlInput.value.trim();
+
+  if (!path) { responseEl.innerHTML = '<span class="err">Please enter a URL path.</span>'; return; }
+
+  // Ensure path starts with /
+  if (!path.startsWith('/')) path = '/' + path;
+
+  // Route through the stage check as a visit command
+  const fakeInput = `visit ${path}`;
+  const stage = STAGES[currentStage];
+  const result = stage.check(fakeInput);
+
+  if (!result) {
+    responseEl.innerHTML = '<span class="err">This URL cannot be visited in the current stage.</span>';
+    return;
+  }
+
+  // Show the query in the SQL monitor
+  if (result.query) displayQuery(result.query);
+  if (result.result) displayResult(result.result);
+
+  // Show the response in the URL bar response area
+  if (result.terminalMsg) {
+    responseEl.innerHTML = result.terminalMsg.split('\n').map(line => `<div>${line || '&nbsp;'}</div>`).join('');
+  }
+
+  // Also echo in terminal
+  printTerminal(`<span class="sys">hacklab&gt;</span> ${escapeHtml(fakeInput)}`);
+  if (result.terminalMsg) {
+    result.terminalMsg.split('\n').forEach(line => printTerminal(line));
+  }
+
+  if (result.pass) {
+    showSuccess(stage);
+  }
+}
+
+function submitLoginForm() {
+  const username = document.getElementById('loginUser').value;
+  const password = document.getElementById('loginPass').value;
+  const errorEl = document.getElementById('loginError');
+
+  if (!username) { errorEl.textContent = 'Please enter a username.'; return; }
+
+  // Route through the same stage check as the terminal
+  const fakeInput = `login ${username} ${password}`;
+  const stage = STAGES[currentStage];
+  const result = stage.check(fakeInput);
+
+  if (!result) {
+    errorEl.textContent = 'Login is not available in this stage.';
+    return;
+  }
+
+  // Show the query in the SQL monitor
+  if (result.query) displayQuery(result.query);
+  if (result.result) displayResult(result.result);
+
+  // Print the attempt in the terminal too
+  printTerminal(`<span class="sys">hacklab&gt;</span> ${escapeHtml(fakeInput)}`);
+  if (result.terminalMsg) {
+    result.terminalMsg.split('\n').forEach(line => printTerminal(line));
+  }
+
+  if (result.pass) {
+    errorEl.innerHTML = '<span style="color: var(--green)">Access granted!</span>';
+    showSuccess(stage);
+  } else {
+    errorEl.textContent = result.result?.error || 'Access denied.';
+  }
+}
+
+function initGame() {
+  renderStageDots();
+  loadStage(0);
+  printTerminal('<span class="sys">HackLab v1.0 initialized.</span>');
+  printTerminal('<span class="sys">Target: MegaCorp Employee Portal (portal.megacorp.local)</span>');
+  printTerminal('<span class="sys">Status: Connected to target network.</span>');
+  printTerminal('');
+  printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands.</span>');
+  printTerminal('');
+}
+
+function renderStageDots() {
+  const el = document.getElementById('stageIndicator');
+  el.innerHTML = STAGES.map((s, i) =>
+    `<div class="stage-dot ${completedStages.has(i) ? 'completed' : ''} ${i === currentStage ? 'active' : ''}" onclick="jumpToStage(${i})">` +
+    `<span class="stage-tooltip">${s.title}</span></div>`
+  ).join('');
+}
+
+function jumpToStage(idx) {
+  loadStage(idx);
+  document.getElementById('terminalInput').focus();
+}
+
+function loadStage(idx) {
+  stageCompleted = false;
+  // Save current stage's terminal history
+  const termOut = document.getElementById('terminalOutput');
+  stageTerminalHistory[currentStage] = termOut.innerHTML;
+
+  currentStage = idx;
+  hintIndex = 0;
+  renderStageDots();
+  document.getElementById('missionText').innerHTML = STAGES[idx].mission;
+  document.getElementById('queryDisplay').innerHTML =
+    `<div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>` +
+    `<div class="editor-body">` +
+    `<div class="line-numbers"><div>1</div><div>2</div></div>` +
+    `<div class="code-area"><span class="sql-comment">-- ${STAGES[idx].title}</span>\n<span class="sql-comment">-- Waiting for input...</span></div>` +
+    `</div>`;
+  document.getElementById('queryResult').innerHTML = `<span style="color: var(--green-dim)">No queries executed yet.</span>`;
+
+  // Restore or initialize terminal for this stage
+  if (stageTerminalHistory[idx]) {
+    termOut.innerHTML = stageTerminalHistory[idx];
+  } else {
+    termOut.innerHTML = '';
+    printTerminal(`<span class="warn">═══ ${STAGES[idx].title.toUpperCase()} ═══</span>`);
+    printTerminal('');
+  }
+
+  // Reset URL bar response when switching stages
+  document.getElementById('urlbarResponse').innerHTML = '<span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>';
+  document.getElementById('urlbarInput').value = '';
+
+  // Show appropriate tabs for this stage
+  updateTabsForStage(STAGES[idx].id);
+
+  const scroll = document.getElementById('terminalScroll');
+  scroll.scrollTop = scroll.scrollHeight;
+}
+
+function printTerminal(html) {
+  const el = document.getElementById('terminalOutput');
+  const scroll = document.getElementById('terminalScroll');
+  const line = document.createElement('div');
+  line.innerHTML = html || '&nbsp;';
+  el.appendChild(line);
+  scroll.scrollTop = scroll.scrollHeight;
+}
+
+function tokenizeSql(sql) {
+  const KEYWORDS = new Set([
+    'SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','NULL','LIKE',
+    'BETWEEN','EXISTS','CASE','WHEN','THEN','ELSE','END','AS',
+    'JOIN','INNER','LEFT','RIGHT','OUTER','CROSS','ON',
+    'INSERT','INTO','VALUES','UPDATE','SET','DELETE','DROP',
+    'CREATE','ALTER','TABLE','INDEX','VIEW','DATABASE',
+    'UNION','ALL','DISTINCT','ORDER','BY','GROUP','HAVING',
+    'LIMIT','OFFSET','ASC','DESC','TRUE','FALSE',
+  ]);
+  const FUNCTIONS = new Set([
+    'COUNT','SUM','AVG','MIN','MAX','UPPER','LOWER','LENGTH',
+    'CONCAT','SUBSTRING','TRIM','COALESCE','CAST','CONVERT',
+    'NOW','CURRENT_TIMESTAMP','IFNULL','NULLIF',
+  ]);
+
+  const tokens = [];
+  let i = 0;
+
+  while (i < sql.length) {
+    // Whitespace
+    if (/\s/.test(sql[i])) {
+      let start = i;
+      while (i < sql.length && /\s/.test(sql[i])) i++;
+      tokens.push({ type: 'ws', value: sql.slice(start, i) });
+      continue;
+    }
+    // Single-line comment --
+    if (sql[i] === '-' && sql[i + 1] === '-') {
+      let start = i;
+      while (i < sql.length && sql[i] !== '\n') i++;
+      tokens.push({ type: 'comment', value: sql.slice(start, i) });
+      continue;
+    }
+    // String literal
+    if (sql[i] === "'") {
+      let start = i; i++;
+      while (i < sql.length && sql[i] !== "'") i++;
+      if (i < sql.length) i++; // closing quote
+      tokens.push({ type: 'string', value: sql.slice(start, i) });
+      continue;
+    }
+    // Number
+    if (/\d/.test(sql[i])) {
+      let start = i;
+      while (i < sql.length && /[\d.]/.test(sql[i])) i++;
+      tokens.push({ type: 'number', value: sql.slice(start, i) });
+      continue;
+    }
+    // Identifier / keyword
+    if (/[a-zA-Z_]/.test(sql[i])) {
+      let start = i;
+      while (i < sql.length && /[a-zA-Z0-9_]/.test(sql[i])) i++;
+      const word = sql.slice(start, i);
+      const upper = word.toUpperCase();
+      if (KEYWORDS.has(upper)) tokens.push({ type: 'keyword', value: word });
+      else if (FUNCTIONS.has(upper)) tokens.push({ type: 'function', value: word });
+      else tokens.push({ type: 'identifier', value: word });
+      continue;
+    }
+    // Operators and punctuation
+    if (sql[i] === '*') { tokens.push({ type: 'star', value: '*' }); i++; continue; }
+    if (sql[i] === '(' || sql[i] === ')') { tokens.push({ type: 'paren', value: sql[i] }); i++; continue; }
+    if (sql[i] === ',') { tokens.push({ type: 'comma', value: ',' }); i++; continue; }
+    if (sql[i] === '=' || sql[i] === '<' || sql[i] === '>' || sql[i] === '!') {
+      let start = i; i++;
+      if (i < sql.length && sql[i] === '=') i++;
+      tokens.push({ type: 'operator', value: sql.slice(start, i) });
+      continue;
+    }
+    if (sql[i] === ';') { tokens.push({ type: 'operator', value: ';' }); i++; continue; }
+    // Fallback
+    tokens.push({ type: 'default', value: sql[i] }); i++;
+  }
+  return tokens;
+}
+
+function displayQuery(sql) {
+  const tokens = tokenizeSql(sql);
+  const codeHtml = tokens.map(t => {
+    const escaped = escapeHtml(t.value);
+    const cls = `sql-${t.type}`;
+    if (t.type === 'ws') return escaped;
+    return `<span class="${cls}">${escaped}</span>`;
+  }).join('');
+
+  // Count lines for line numbers
+  const lines = sql.split('\n');
+  const lineNums = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
+
+  document.getElementById('queryDisplay').innerHTML =
+    `<div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>` +
+    `<div class="editor-body">` +
+    `<div class="line-numbers">${lineNums}</div>` +
+    `<div class="code-area">${codeHtml}</div>` +
+    `</div>`;
+}
+
+function displayResult(result) {
+  const el = document.getElementById('queryResult');
+
+  if (result.error) {
+    el.className = 'query-result error';
+    el.textContent = result.error;
+    return;
+  }
+
+  if (result.updated !== undefined) {
+    el.className = 'query-result success';
+    el.textContent = result.message;
+    return;
+  }
+
+  if (result.rows && result.rows.length > 0) {
+    el.className = 'query-result success';
+    const cols = result.cols || Object.keys(result.rows[0]);
+    let tableHtml = '<table class="result-table"><tr>';
+    cols.forEach(c => tableHtml += `<th>${c}</th>`);
+    tableHtml += '</tr>';
+    result.rows.forEach(row => {
+      tableHtml += '<tr>';
+      cols.forEach(c => tableHtml += `<td>${row[c] !== undefined ? row[c] : 'NULL'}</td>`);
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</table>';
+    el.innerHTML = tableHtml;
+  } else {
+    el.className = 'query-result';
+    el.textContent = 'Query returned 0 rows.';
+  }
+}
+
+function showHint() {
+  const stage = STAGES[currentStage];
+  if (hintIndex < stage.hints.length) {
+    printTerminal(`<span class="warn">[HINT ${hintIndex + 1}/${stage.hints.length}] ${stage.hints[hintIndex]}</span>`);
+    hintIndex++;
+  } else {
+    printTerminal(`<span class="warn">No more hints for this stage.</span>`);
+  }
+}
+
+function showSuccess(stage) {
+  const s = stage.success;
+  printTerminal('');
+  printTerminal(`<span class="success">══════════════════════════════════════</span>`);
+  printTerminal(`<span class="success">  ${s.title.toUpperCase()}</span>`);
+  printTerminal(`<span class="success">══════════════════════════════════════</span>`);
+  printTerminal(`<span class="info">${s.subtitle}</span>`);
+  printTerminal('');
+  s.explanation.split('\n').forEach(line => {
+    printTerminal(`<span class="sys">${escapeHtml(line)}</span>`);
+  });
+  printTerminal('');
+  if (currentStage < STAGES.length - 1) {
+    printTerminal(`<span class="warn">Type <span class="cmd">next</span> to continue to the next stage.</span>`);
+  } else {
+    printTerminal(`<span class="success">You\'ve completed all stages! Type <span class="cmd">restart</span> to play again.</span>`);
+  }
+  stageCompleted = true;
+  completedStages.add(currentStage);
+  renderStageDots();
+}
+
+function nextStage() {
+  if (currentStage < STAGES.length - 1) {
+    loadStage(currentStage + 1);
+  }
+  document.getElementById('terminalInput').focus();
+}
+
+// ========== COMMAND PARSER ==========
+function parseCommand(input) {
+  const raw = input.trim();
+  const cmdMatch = raw.match(/^([\w-]+)\s*(.*)/);
+  if (!cmdMatch) return { cmd: '', args: [] };
+
+  const cmd = cmdMatch[1].toLowerCase();
+  const argStr = cmdMatch[2];
+
+  // For search: everything after 'search' is the search term
+  if (cmd === 'search' && argStr) {
+    return { cmd, args: [argStr], rawArgs: argStr, raw };
+  }
+
+  // For ping: preserve the full raw args (semicolons, pipes, etc. matter)
+  if (cmd === 'ping' && argStr) {
+    return { cmd, args: [argStr], rawArgs: argStr, raw };
+  }
+
+  // For login: detect if input looks like SQL injection (contains ' or SQL keywords)
+  // If so, treat everything as the username (injection target)
+  // Otherwise split into [username, password]
+  if (cmd === 'login' && argStr) {
+    const looksLikeInjection = /['";]|(\bOR\b)|(\bUNION\b)|(\bAND\b)|(\bSELECT\b)|(--)/i.test(argStr);
+    if (looksLikeInjection) {
+      return { cmd, args: [argStr, ''], raw };
+    }
+    const parts = argStr.split(/\s+/);
+    return { cmd, args: [parts[0], parts.slice(1).join(' ')], raw };
+  }
+
+  const args = argStr ? argStr.split(/\s+/) : [];
+  return { cmd, args, raw };
+}
+
+function handleInput() {
+  const input = document.getElementById('terminalInput');
+  const raw = input.value.trim();
+  input.value = '';
+
+  // Always echo the prompt line (empty enter = blank prompt, like a real terminal)
+  printTerminal(`<span class="sys">hacklab&gt;</span> ${raw ? escapeHtml(raw) : ''}`);
+
+  if (!raw) return;
+
+  commandHistory.push(raw);
+  historyIndex = commandHistory.length;
+
+  const parts = parseCommand(raw);
+
+  switch (parts.cmd) {
+    case 'help': {
+      const stageId = STAGES[currentStage].id;
+      printTerminal(`<span class="info">Available commands:</span>`);
+      if (stageId === 'intro' || stageId === 'sql_injection') printTerminal(`  <span class="cmd">login [user] [pass]</span>  - Attempt login`);
+      if (stageId === 'intro') printTerminal(`  <span class="cmd">view-source</span>         - View page source code`);
+      if (stageId === 'idor') printTerminal(`  <span class="cmd">visit [url]</span>         - Visit a URL on the portal`);
+      if (stageId === 'xss') printTerminal(`  <span class="cmd">search [term]</span>       - Search the employee directory`);
+      if (stageId === 'command_injection') printTerminal(`  <span class="cmd">ping [host]</span>         - Run server diagnostic tool`);
+      printTerminal(`  <span class="cmd">hint</span>                - Get a hint`);
+      printTerminal(`  <span class="cmd">next</span>                - Go to next stage`);
+      printTerminal(`  <span class="cmd">restart</span>             - Restart from stage 1`);
+      printTerminal(`  <span class="cmd">clear</span>               - Clear terminal`);
+      printTerminal(`  <span class="cmd">status</span>              - Show current stage`);
+      printTerminal(`  <span class="cmd">help</span>                - Show this message`);
+      break;
+    }
+
+    case 'hint':
+      showHint();
+      break;
+
+    case 'clear':
+      document.getElementById('terminalOutput').innerHTML = '';
+      break;
+
+    case 'status':
+      printTerminal(`<span class="info">Current: ${STAGES[currentStage].title}</span>`);
+      printTerminal(`<span class="info">Progress: ${completedStages.size}/${STAGES.length} stages completed</span>`);
+      break;
+
+    case 'next':
+      if (stageCompleted && currentStage < STAGES.length - 1) {
+        nextStage();
+      } else if (!stageCompleted) {
+        printTerminal(`<span class="err">Complete the current stage first.</span>`);
+      } else {
+        printTerminal(`<span class="info">No more stages. Type <span class="cmd">restart</span> to play again.</span>`);
+      }
+      break;
+
+    case 'restart':
+      Object.keys(stageTerminalHistory).forEach(k => delete stageTerminalHistory[k]);
+      document.getElementById('terminalOutput').innerHTML = '';
+      loadStage(0);
+      printTerminal('<span class="sys">HackLab v1.0 restarted.</span>');
+      printTerminal('');
+      break;
+
+    case 'visit':
+    case 'view-source':
+    case 'login':
+    case 'search':
+    case 'ping':
+      const stage = STAGES[currentStage];
+      const result = stage.check(raw);
+      if (result === null) {
+        printTerminal(`<span class="err">Command '${parts.cmd}' is not available in this stage.</span>`);
+        break;
+      }
+      if (result.query) displayQuery(result.query);
+      if (result.result) displayResult(result.result);
+      if (result.terminalMsg) {
+        result.terminalMsg.split('\n').forEach(line => printTerminal(line));
+      }
+      if (result.pass) {
+        showSuccess(stage);
+      }
+      break;
+
+    default:
+      printTerminal(`<span class="err">Unknown command: ${parts.cmd}. Type 'help' for commands.</span>`);
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Command history navigation
+document.getElementById('terminalInput').addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (historyIndex > 0) {
+      historyIndex--;
+      this.value = commandHistory[historyIndex];
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      this.value = commandHistory[historyIndex];
+    } else {
+      historyIndex = commandHistory.length;
+      this.value = '';
+    }
+  }
+});
+
+// ========== RESIZABLE PANELS ==========
+(function() {
+  const hHandle = document.getElementById('hHandle');
+  const vHandle = document.getElementById('vHandle');
+  const mainSplit = document.querySelector('.main-split');
+  const leftCol = document.querySelector('.left-col');
+  const rightCol = document.querySelector('.right-col');
+  const queryPanel = document.querySelector('.query-panel');
+  const interactionPanel = document.querySelector('.interaction-panel');
+
+  // Horizontal resize (left/right columns)
+  let draggingH = false;
+  hHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    draggingH = true;
+    hHandle.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  // Vertical resize (query/terminal in right column)
+  let draggingV = false;
+  vHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    draggingV = true;
+    vHandle.classList.add('active');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (draggingH) {
+      const rect = mainSplit.getBoundingClientRect();
+      const pct = ((e.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.max(20, Math.min(80, pct));
+      leftCol.style.flex = `0 0 ${clamped}%`;
+      rightCol.style.flex = `0 0 ${100 - clamped}%`;
+    }
+    if (draggingV) {
+      const rect = rightCol.getBoundingClientRect();
+      const offset = e.clientY - rect.top;
+      const pct = (offset / rect.height) * 100;
+      const clamped = Math.max(15, Math.min(85, pct));
+      queryPanel.style.flex = `0 0 ${clamped}%`;
+      interactionPanel.style.flex = `0 0 ${100 - clamped - 2}%`;
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (draggingH) {
+      draggingH = false;
+      hHandle.classList.remove('active');
+    }
+    if (draggingV) {
+      draggingV = false;
+      vHandle.classList.remove('active');
+    }
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// Click-to-focus: only focus input if user clicked without dragging to select
+(function() {
+  const panel = document.querySelector('.terminal-panel');
+  let mouseDownPos = null;
+  panel.addEventListener('mousedown', (e) => {
+    mouseDownPos = { x: e.clientX, y: e.clientY };
+  });
+  panel.addEventListener('mouseup', (e) => {
+    if (!mouseDownPos) return;
+    const dx = Math.abs(e.clientX - mouseDownPos.x);
+    const dy = Math.abs(e.clientY - mouseDownPos.y);
+    // Only focus if it was a click (not a drag/selection)
+    if (dx < 5 && dy < 5 && !window.getSelection().toString()) {
+      document.getElementById('terminalInput').focus();
+    }
+    mouseDownPos = null;
+  });
+})();
+
+// Start the game
+initGame();
+</script>
+</body>
+</html>

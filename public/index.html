@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackLab - Security Training</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="logo">HACK<span>LAB</span> v2.0</div>
+    <div class="controls">
+      <button class="hint-btn" onclick="requestHint()">HINT</button>
+      <div class="stage-indicator" id="stageIndicator"></div>
+    </div>
+  </div>
+
+  <div class="main-split">
+    <div class="left-col">
+      <div class="panel mission-panel">
+        <div class="panel-title">Mission Briefing</div>
+        <div class="mission-text" id="missionText"></div>
+      </div>
+    </div>
+
+    <div class="resize-handle-h" id="hHandle"></div>
+
+    <div class="right-col">
+      <div class="panel query-panel">
+        <div class="panel-title">SQL Query Monitor</div>
+        <div class="query-display" id="queryDisplay">
+          <div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>
+          <div class="editor-body">
+            <div class="line-numbers"><div>1</div></div>
+            <div class="code-area"><span class="sql-comment">-- Waiting for input...</span></div>
+          </div>
+        </div>
+        <div class="query-label">Query Result</div>
+        <div class="query-result" id="queryResult">
+          <span style="color: var(--green-dim)">No queries executed yet.</span>
+        </div>
+      </div>
+
+      <div class="resize-handle-v" id="vHandle"></div>
+
+      <div class="interaction-panel">
+        <div class="interaction-tabs">
+          <button class="interaction-tab active" data-tab="terminal" onclick="switchTab('terminal')">Terminal</button>
+          <button class="interaction-tab" data-tab="urlbar" onclick="switchTab('urlbar')" style="display:none">Browser</button>
+          <button class="interaction-tab" data-tab="browser" onclick="switchTab('browser')" style="display:none">Login Form</button>
+        </div>
+
+        <div class="tab-content active" id="tabTerminal">
+          <div class="terminal-panel">
+            <div class="terminal-scroll" id="terminalScroll">
+              <div class="terminal-output" id="terminalOutput"></div>
+              <div class="terminal-input-row">
+                <span class="prompt-symbol">hacklab&gt;</span>
+                <input type="text" class="terminal-input" id="terminalInput"
+                       placeholder="Type a command..." autofocus
+                       onkeydown="handleTerminalKeydown(event)">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabUrlbar">
+          <div class="urlbar-ui">
+            <div class="urlbar-container">
+              <span class="urlbar-prefix">https://portal.megacorp.local</span>
+              <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/profile?id=1"
+                     onkeydown="if(event.key==='Enter')submitUrlbar()">
+              <button class="urlbar-go" onclick="submitUrlbar()">Go</button>
+            </div>
+            <div class="urlbar-response" id="urlbarResponse">
+              <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tabBrowser">
+          <div class="login-ui" id="loginUI">
+            <div class="login-url"><span>https://</span>portal.megacorp.local/login</div>
+            <div class="login-card">
+              <!-- TODO: remove before deploy -->
+              <!-- default test account: admin / password123 -->
+              <div class="login-logo">
+                <div class="company">MEGACORP</div>
+                <div class="subtitle">Employee Portal</div>
+              </div>
+              <div class="login-field">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="Enter username"
+                       onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+              </div>
+              <div class="login-field">
+                <label>Password</label>
+                <input type="password" id="loginPass" placeholder="Enter password"
+                       onkeydown="if(event.key==='Enter')submitLoginForm()">
+              </div>
+              <button class="login-submit" onclick="submitLoginForm()">Sign In</button>
+              <div class="login-error" id="loginError"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/query-display.js"></script>
+<script src="/js/terminal.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
