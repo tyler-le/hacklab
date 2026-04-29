@@ -3,7 +3,7 @@ const router = express.Router();
 
 // Simulated filesystem for the "server"
 const FAKE_FS = {
-  '/var/www/megacorp': ['index.php', 'config.php', 'uploads/', 'logs/'],
+  '/var/www/megacorp': ['server.js', 'routes.js', 'db.js', 'package.json', 'public/', 'node_modules/'],
   '/etc': ['crontab', 'hostname', 'hosts', 'passwd', 'resolv.conf', 'secrets/'],
   '/etc/secrets': ['api_keys.txt'],
   '/etc/secrets/api_keys.txt': [

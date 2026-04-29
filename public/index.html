@@ -48,8 +48,7 @@
       <div class="interaction-panel">
         <div class="interaction-tabs">
           <button class="interaction-tab active" data-tab="terminal" onclick="switchTab('terminal')">Terminal</button>
-          <button class="interaction-tab" data-tab="urlbar" onclick="switchTab('urlbar')" style="display:none">Browser</button>
-          <button class="interaction-tab" data-tab="browser" onclick="switchTab('browser')" style="display:none">Login Form</button>
+          <button class="interaction-tab" data-tab="urlbar" onclick="switchTab('urlbar')">Browser</button>
         </div>
 
         <div class="tab-content active" id="tabTerminal">
@@ -57,10 +56,10 @@
             <div class="terminal-scroll" id="terminalScroll">
               <div class="terminal-output" id="terminalOutput"></div>
               <div class="terminal-input-row">
-                <span class="prompt-symbol">hacklab&gt;</span>
-                <input type="text" class="terminal-input" id="terminalInput"
-                       placeholder="Type a command..." autofocus
-                       onkeydown="handleTerminalKeydown(event)">
+                <span class="prompt-symbol" id="promptSymbol">www-data@megacorp:/var/www/megacorp$</span>
+                <div class="terminal-input" id="terminalInput" contenteditable="true"
+                     role="textbox" tabindex="0"
+                     autocorrect="off" autocapitalize="off" spellcheck="false"></div>
               </div>
             </div>
           </div>
@@ -69,43 +68,38 @@
         <div class="tab-content" id="tabUrlbar">
           <div class="urlbar-ui">
             <div class="urlbar-container">
-              <span class="urlbar-prefix">https://portal.megacorp.local</span>
-              <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/profile?id=1"
+              <span class="urlbar-prefix">http://localhost</span>
+              <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/login"
                      onkeydown="if(event.key==='Enter')submitUrlbar()">
               <button class="urlbar-go" onclick="submitUrlbar()">Go</button>
+              <button class="urlbar-source" id="viewSourceBtn" onclick="toggleViewSource()">View Source</button>
             </div>
-            <div class="urlbar-response" id="urlbarResponse">
-              <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="tab-content" id="tabBrowser">
-          <div class="login-ui" id="loginUI">
-            <div class="login-url"><span>https://</span>portal.megacorp.local/login</div>
-            <div class="login-card">
-              <!-- TODO: remove before deploy -->
-              <!-- default test account: admin / password123 -->
-              <div class="login-logo">
-                <div class="company">MEGACORP</div>
-                <div class="subtitle">Employee Portal</div>
+            <div class="browser-viewport" id="browserViewport">
+              <iframe id="browserFrame" sandbox="allow-same-origin allow-scripts allow-forms" class="browser-frame"></iframe>
+              <pre class="browser-source" id="browserSource" style="display:none"></pre>
+              <div class="browser-placeholder" id="browserPlaceholder">
+                <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
               </div>
-              <div class="login-field">
-                <label>Username</label>
-                <input type="text" id="loginUser" placeholder="Enter username"
-                       onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-              </div>
-              <div class="login-field">
-                <label>Password</label>
-                <input type="password" id="loginPass" placeholder="Enter password"
-                       onkeydown="if(event.key==='Enter')submitLoginForm()">
-              </div>
-              <button class="login-submit" onclick="submitLoginForm()">Sign In</button>
-              <div class="login-error" id="loginError"></div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="success-overlay" id="successOverlay">
+  <div class="success-modal">
+    <div class="success-badge">STAGE COMPLETE</div>
+    <h2 class="success-title" id="successTitle"></h2>
+    <p class="success-subtitle" id="successSubtitle"></p>
+    <div class="success-divider"></div>
+    <div class="success-explanation" id="successExplanation"></div>
+    <div class="success-divider"></div>
+    <div class="success-defense" id="successDefense"></div>
+    <div class="success-btn-row">
+      <button class="success-btn secondary" id="successBtnBack"></button>
+      <button class="success-btn" id="successBtnNext"></button>
     </div>
   </div>
 </div>

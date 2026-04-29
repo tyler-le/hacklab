@@ -4,6 +4,9 @@ let ws = null;
 let sessionId = localStorage.getItem('hacklab-session');
 let commandHistory = [];
 let historyIndex = -1;
+let currentPrompt = 'www-data@megacorp:/var/www/megacorp$ ';
+let sqliteMode = false;
+let lastBrowserHtml = '';
 
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -26,6 +29,10 @@ function connectWebSocket() {
       case 'result':
         onCommandResult(msg);
         break;
+
+      case 'complete':
+        handleCompletionResult(msg);
+        break;
     }
   };
 
@@ -46,71 +53,70 @@ function onGameInit(msg) {
   completedStages = new Set(msg.completedStages);
   stageCount = msg.stageCount;
 
+  if (msg.prompt) {
+    currentPrompt = msg.prompt;
+    updatePromptDisplay();
+  }
+
   renderStageDots();
   document.getElementById('missionText').innerHTML = msg.stage.mission;
-  updateTabsForStage(msg.stage.id);
 
   printTerminal('<span class="sys">HackLab v2.0 initialized.</span>');
-  printTerminal('<span class="sys">Target: MegaCorp Employee Portal (portal.megacorp.local)</span>');
-  printTerminal('<span class="sys">Status: Connected to target network.</span>');
+  printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');
+  printTerminal('<span class="sys">Shell access as: www-data</span>');
   printTerminal('');
   printTerminal(`<span class="warn">═══ ${msg.stage.title.toUpperCase()} ═══</span>`);
   printTerminal('');
-  printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands.</span>');
+  printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands, or <span class="cmd">hint</span> for a hint.</span>');
   printTerminal('');
 }
 
 function onCommandResult(msg) {
+  // Update prompt
+  if (msg.prompt) {
+    currentPrompt = msg.prompt;
+    updatePromptDisplay();
+  }
+
+  // Track sqlite mode
+  if (msg.sqliteMode !== undefined) {
+    sqliteMode = msg.sqliteMode;
+  }
+  if (msg.exitSqlite) {
+    sqliteMode = false;
+  }
+
   // Clear terminal if requested
   if (msg.clear) {
     document.getElementById('terminalOutput').innerHTML = '';
     return;
   }
 
-  // Handle stage change (next/restart)
+  // Handle stage change (next/restart via terminal command)
   if (msg.stageChange) {
     const sc = msg.stageChange;
-    const termOut = document.getElementById('terminalOutput');
 
-    // Save current stage's terminal history before switching
-    stageTerminalHistory[currentStage] = termOut.innerHTML;
+    saveStageState(currentStage);
 
     currentStage = sc.currentStage;
     completedStages = new Set(sc.completedStages);
     renderStageDots();
     document.getElementById('missionText').innerHTML = sc.stage.mission;
-    updateTabsForStage(sc.stage.id);
-
-    // Reset query display
-    document.getElementById('queryDisplay').innerHTML =
-      `<div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>` +
-      `<div class="editor-body">` +
-      `<div class="line-numbers"><div>1</div></div>` +
-      `<div class="code-area"><span class="sql-comment">-- ${sc.stage.title}</span></div>` +
-      `</div>`;
-    document.getElementById('queryResult').innerHTML = '<span style="color: var(--green-dim)">No queries executed yet.</span>';
-
-    // Reset URL bar
-    document.getElementById('urlbarResponse').innerHTML = '<span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>';
-    document.getElementById('urlbarInput').value = '';
-
-    // Restore or initialize terminal for the new stage
-    if (stageTerminalHistory[sc.currentStage]) {
-      termOut.innerHTML = stageTerminalHistory[sc.currentStage];
-    } else {
-      termOut.innerHTML = '';
-    }
-
-    const scroll = document.getElementById('terminalScroll');
-    scroll.scrollTop = scroll.scrollHeight;
+    updateTabsForStage();
+    restoreStageState(sc.currentStage, sc.stage.title);
   }
 
   if (msg.restart) {
     sessionId = msg.sessionId;
     localStorage.setItem('hacklab-session', sessionId);
     document.getElementById('terminalOutput').innerHTML = '';
-    // Clear all saved terminal histories
+    // Clear all saved stage state
     Object.keys(stageTerminalHistory).forEach(k => delete stageTerminalHistory[k]);
+    Object.keys(stageQueryHistory).forEach(k => delete stageQueryHistory[k]);
+    Object.keys(stageBrowserHistory).forEach(k => delete stageBrowserHistory[k]);
+    Object.keys(stageActiveTab).forEach(k => delete stageActiveTab[k]);
+    resetBrowser();
+    sqliteMode = false;
   }
 
   // Print terminal lines
@@ -127,16 +133,23 @@ function onCommandResult(msg) {
   // Handle stage completion
   if (msg.stagePass && msg.stageSuccess) {
     completedStages.add(currentStage);
+    if (msg.completedStages) {
+      completedStages = new Set(msg.completedStages);
+    }
     renderStageDots();
     showSuccess(msg.stageSuccess);
 
-    // Also notify server
     fetch('/api/stage/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId }),
     });
   }
+}
+
+function updatePromptDisplay() {
+  const el = document.getElementById('promptSymbol');
+  if (el) el.textContent = currentPrompt;
 }
 
 function printTerminal(html) {
@@ -148,34 +161,126 @@ function printTerminal(html) {
   scroll.scrollTop = scroll.scrollHeight;
 }
 
+function getInputValue() {
+  return document.getElementById('terminalInput').textContent || '';
+}
+
+function setInputValue(val) {
+  const el = document.getElementById('terminalInput');
+  el.textContent = val;
+  // Move cursor to end
+  if (val) {
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function setupTerminalInput() {
+  const el = document.getElementById('terminalInput');
+  el.addEventListener('keydown', handleTerminalKeydown);
+  // Prevent pasting rich text — force plain text
+  el.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text);
+  });
+  // Prevent Enter from inserting a newline
+  el.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+}
+
 function handleTerminalKeydown(event) {
-  if (event.key === 'Enter') {
+  if (event.key === 'Tab') {
+    event.preventDefault();
+    requestCompletion();
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
     handleInput();
   } else if (event.key === 'ArrowUp') {
     event.preventDefault();
     if (historyIndex > 0) {
       historyIndex--;
-      document.getElementById('terminalInput').value = commandHistory[historyIndex];
+      setInputValue(commandHistory[historyIndex]);
     }
   } else if (event.key === 'ArrowDown') {
     event.preventDefault();
     if (historyIndex < commandHistory.length - 1) {
       historyIndex++;
-      document.getElementById('terminalInput').value = commandHistory[historyIndex];
+      setInputValue(commandHistory[historyIndex]);
     } else {
       historyIndex = commandHistory.length;
-      document.getElementById('terminalInput').value = '';
+      setInputValue('');
     }
   }
 }
 
-function handleInput() {
-  const input = document.getElementById('terminalInput');
-  const raw = input.value.trim();
-  input.value = '';
+let lastTabInput = null;
+let lastTabCompletions = null;
+let tabCycleIndex = 0;
 
-  // Echo the command
-  printTerminal(`<span class="sys">hacklab&gt;</span> ${raw ? escapeHtml(raw) : ''}`);
+function requestCompletion() {
+  const value = getInputValue();
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+  ws.send(JSON.stringify({ type: 'complete', input: value }));
+}
+
+function handleCompletionResult(msg) {
+  const completions = msg.completions || [];
+  const partial = msg.partial || '';
+  const replaceFrom = msg.replaceFrom ?? 0;
+
+  if (completions.length === 0) return;
+
+  const currentValue = getInputValue();
+
+  if (completions.length === 1) {
+    const completion = completions[0];
+    const suffix = completion.endsWith('/') ? '' : ' ';
+    setInputValue(currentValue.substring(0, replaceFrom) + completion + suffix);
+    lastTabInput = null;
+    lastTabCompletions = null;
+    return;
+  }
+
+  // Multiple matches — find longest common prefix
+  let common = completions[0];
+  for (let i = 1; i < completions.length; i++) {
+    while (!completions[i].startsWith(common)) {
+      common = common.substring(0, common.length - 1);
+    }
+  }
+
+  if (common.length > partial.length) {
+    setInputValue(currentValue.substring(0, replaceFrom) + common);
+    lastTabInput = null;
+    lastTabCompletions = null;
+    return;
+  }
+
+  // Show all completions
+  printTerminal(`<span class="sys">${escapeHtml(currentPrompt)}</span> ${escapeHtml(currentValue)}`);
+  const display = completions.map(c => escapeHtml(c)).join('  ');
+  printTerminal(`<span class="info">${display}</span>`);
+
+  lastTabInput = currentValue;
+  lastTabCompletions = completions;
+}
+
+function handleInput() {
+  const raw = getInputValue().trim();
+  setInputValue('');
+
+  // Echo the command with the current prompt
+  const promptHtml = sqliteMode
+    ? '<span class="sys">sqlite&gt;</span>'
+    : `<span class="sys">${escapeHtml(currentPrompt)}</span>`;
+  printTerminal(`${promptHtml} ${raw ? escapeHtml(raw) : ''}`);
 
   if (!raw) return;
 
@@ -185,77 +290,150 @@ function handleInput() {
   sendCommand(raw);
 }
 
-// Submit URL bar — makes a real HTTP request to the IDOR endpoint
-function submitUrlbar() {
-  const urlInput = document.getElementById('urlbarInput');
-  const responseEl = document.getElementById('urlbarResponse');
-  let path = urlInput.value.trim();
-
-  if (!path) { responseEl.innerHTML = '<span class="err">Please enter a URL path.</span>'; return; }
-  if (!path.startsWith('/')) path = '/' + path;
-
-  // Also send via terminal for the command log
-  printTerminal(`<span class="sys">hacklab&gt;</span> visit ${escapeHtml(path)}`);
-  sendCommand(`visit ${path}`);
-
-  // Make a real HTTP request to the profile endpoint
-  const idMatch = path.match(/[?&]id=(\d+)/);
-  if (idMatch && path.includes('/profile')) {
-    fetch(`/api/profile?id=${idMatch[1]}&sessionId=${sessionId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          responseEl.innerHTML = `<div><span class="err">${escapeHtml(data.error)}</span></div>`;
-        } else {
-          let html = '<div><span class="info">══ Employee Profile ══</span></div>';
-          for (const [key, val] of Object.entries(data.user)) {
-            const cls = (key === 'api_key' || key === 'ssh_access' || key === 'db_access') ? 'warn' : 'info';
-            html += `<div>  <span class="${cls}">${escapeHtml(key)}:</span> ${escapeHtml(val)}</div>`;
-          }
-          responseEl.innerHTML = html;
-        }
-      })
-      .catch(() => {
-        responseEl.innerHTML = '<span class="err">Network error.</span>';
-      });
-  } else {
-    responseEl.innerHTML = `<span class="err">404 Not Found: ${escapeHtml(path)}</span>`;
+// Script injected into iframe pages to intercept form submissions and links
+const IFRAME_INTERCEPT_SCRIPT = `<script>
+document.addEventListener('submit', function(e) {
+  e.preventDefault();
+  var form = e.target;
+  var data = new FormData(form);
+  var params = [];
+  for (var pair of data.entries()) {
+    params.push(encodeURIComponent(pair[0]) + '=' + encodeURIComponent(pair[1]));
   }
+  window.parent.postMessage({
+    type: 'iframe-form-submit',
+    method: (form.method || 'GET').toUpperCase(),
+    action: form.action ? new URL(form.action, location.href).pathname : location.pathname,
+    body: params.join('&')
+  }, '*');
+});
+document.addEventListener('click', function(e) {
+  var a = e.target.closest('a');
+  if (a && a.href) {
+    e.preventDefault();
+    var url = new URL(a.href, location.href);
+    window.parent.postMessage({
+      type: 'iframe-navigate',
+      path: url.pathname + url.search
+    }, '*');
+  }
+});
+<\/script>`;
+
+// Inject the intercept script into HTML before </body> or at the end
+function injectIframeScript(html) {
+  if (html.includes('</body>')) {
+    return html.replace('</body>', IFRAME_INTERCEPT_SCRIPT + '</body>');
+  }
+  return html + IFRAME_INTERCEPT_SCRIPT;
 }
 
-// Submit login form — makes a real HTTP request to the auth endpoint
-function submitLoginForm() {
-  const username = document.getElementById('loginUser').value;
-  const password = document.getElementById('loginPass').value;
-  const errorEl = document.getElementById('loginError');
+// Listen for messages from the iframe
+window.addEventListener('message', function(e) {
+  if (!e.data || !e.data.type) return;
 
-  if (!username) { errorEl.textContent = 'Please enter a username.'; return; }
+  if (e.data.type === 'iframe-form-submit') {
+    const { method, action, body } = e.data;
+    // Build and send curl command through the shell for win detection
+    let curlCmd;
+    if (method === 'POST' && body) {
+      curlCmd = `curl -d "${body}" http://localhost:3000${action}`;
+    } else {
+      curlCmd = `curl http://localhost:3000${action}`;
+    }
+    printTerminal(`<span class="sys">${escapeHtml(currentPrompt)}</span> ${escapeHtml(curlCmd)}`);
+    sendCommand(curlCmd);
 
-  // Determine stage mode
-  const stageId = getCurrentStageId();
+    // Also fetch the response to render in the iframe
+    loadInBrowser(action, method, body);
+  }
 
-  // Also echo in terminal
-  printTerminal(`<span class="sys">hacklab&gt;</span> login ${escapeHtml(username)} ${escapeHtml(password || '')}`);
-  sendCommand(`login ${username} ${password || ''}`);
+  if (e.data.type === 'iframe-navigate') {
+    document.getElementById('urlbarInput').value = e.data.path;
+    submitUrlbar();
+  }
+});
 
-  // Make real HTTP request
-  fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, sessionId, stage: stageId }),
-  })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        errorEl.innerHTML = '<span style="color: var(--green)">Access granted!</span>';
-      } else {
-        errorEl.textContent = data.error || 'Access denied.';
-      }
+// Load a page into the browser iframe
+function loadInBrowser(path, method, body) {
+  const placeholder = document.getElementById('browserPlaceholder');
+  const frame = document.getElementById('browserFrame');
+  const source = document.getElementById('browserSource');
+
+  if (placeholder) placeholder.style.display = 'none';
+
+  const fetchOpts = { method: method || 'GET' };
+  if (method === 'POST' && body) {
+    fetchOpts.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    fetchOpts.body = body;
+  }
+
+  fetch(`/webapp${path}`, fetchOpts)
+    .then(r => r.text())
+    .then(html => {
+      lastBrowserHtml = html;
+      frame.style.display = 'block';
+      source.style.display = 'none';
+      frame.srcdoc = injectIframeScript(html);
     })
     .catch(() => {
-      errorEl.textContent = 'Network error.';
+      frame.style.display = 'none';
+      source.style.display = 'block';
+      source.textContent = 'Error loading page.';
     });
 }
 
+// Submit Browser URL bar — loads page in iframe via vulnerable-app
+function submitUrlbar() {
+  const urlInput = document.getElementById('urlbarInput');
+  let path = urlInput.value.trim();
+  if (!path) return;
+  if (!path.startsWith('/')) path = '/' + path;
+
+  // Also send as a curl command through the terminal for win detection
+  printTerminal(`<span class="sys">${escapeHtml(currentPrompt)}</span> curl http://localhost:3000${escapeHtml(path)}`);
+  sendCommand(`curl http://localhost:3000${path}`);
+
+  // Load in iframe
+  loadInBrowser(path);
+}
+
+function toggleViewSource() {
+  const btn = document.getElementById('viewSourceBtn');
+  const frame = document.getElementById('browserFrame');
+  const source = document.getElementById('browserSource');
+
+  if (!lastBrowserHtml) return;
+
+  const isSource = source.style.display !== 'none';
+  if (isSource) {
+    // Switch back to rendered view
+    frame.style.display = 'block';
+    source.style.display = 'none';
+    btn.classList.remove('active');
+  } else {
+    // Show source
+    frame.style.display = 'none';
+    source.style.display = 'block';
+    source.textContent = lastBrowserHtml;
+    btn.classList.add('active');
+  }
+}
+
+function resetBrowser() {
+  const frame = document.getElementById('browserFrame');
+  const source = document.getElementById('browserSource');
+  const placeholder = document.getElementById('browserPlaceholder');
+  const btn = document.getElementById('viewSourceBtn');
+
+  if (frame) frame.style.display = 'none';
+  if (source) source.style.display = 'none';
+  if (placeholder) placeholder.style.display = 'flex';
+  if (btn) btn.classList.remove('active');
+  lastBrowserHtml = '';
+  document.getElementById('urlbarInput').value = '';
+}
+
 // Initialize
+setupTerminalInput();
 connectWebSocket();
