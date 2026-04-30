@@ -23,9 +23,15 @@ class ShellSession {
     this.sessionId = sessionId;
     this.currentStage = currentStage;
     this.cwd = '/var/www/megacorp';
-    this.fs = new VirtualFS(buildFilesystem());
+    this.fs = new VirtualFS(buildFilesystem(currentStage));
     this.history = [];
     this.sqliteMode = false;
+  }
+
+  /** Rebuild the virtual filesystem when the stage changes. */
+  setStage(stageIndex) {
+    this.currentStage = stageIndex;
+    this.fs = new VirtualFS(buildFilesystem(stageIndex));
   }
 
   /**
@@ -33,7 +39,7 @@ class ShellSession {
    */
   getPrompt() {
     if (this.sqliteMode) return 'sqlite> ';
-    return `www-data@megacorp:${this.cwd}$ `;
+    return `hacklab@megacorp:${this.cwd}$ `;
   }
 
   /**
@@ -73,7 +79,8 @@ class ShellSession {
     const segments = parseCommandLine(trimmed);
     const outputs = [];
     let lastResult = null;
-    let stagePass = false;
+    let stageFlag = null;
+    let loginSuccess = false;
     let query = null;
     let queryResult = null;
     let doClear = false;
@@ -82,7 +89,8 @@ class ShellSession {
       const result = this._executeOne(segment.command, lastResult?.stdout);
 
       if (result.clear) doClear = true;
-      if (result.stagePass) stagePass = true;
+      if (result.stageFlag) stageFlag = result.stageFlag;
+      if (result.loginSuccess) loginSuccess = true;
       if (result.query) query = result.query;
       if (result.queryResult) queryResult = result.queryResult;
 
@@ -101,7 +109,8 @@ class ShellSession {
       stdout: outputs.join('\n'),
       prompt: this.getPrompt(),
       clear: doClear,
-      stagePass,
+      stageFlag,
+      loginSuccess,
       query,
       queryResult,
       sqliteMode: this.sqliteMode,

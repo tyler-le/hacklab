@@ -15,6 +15,34 @@ const stageActiveTab = {};
 // Stage ID list for tab management
 const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection'];
 
+// Monitor title per stage (null = hide the panel)
+const MONITOR_TITLES = {
+  0: null,
+  1: null,
+  2: null,
+  3: 'SQL Query Monitor',
+  4: 'Shell Command Monitor',
+};
+
+function updateMonitorTitle(stageIndex) {
+  const panel = document.querySelector('.query-panel');
+  const vHandle = document.getElementById('vHandle');
+  const title = MONITOR_TITLES[stageIndex];
+
+  if (title === null) {
+    // Hide monitor — terminal fills the full left column
+    if (panel) panel.style.display = 'none';
+    if (vHandle) vHandle.style.display = 'none';
+  } else {
+    if (panel) panel.style.display = '';
+    if (vHandle) vHandle.style.display = '';
+    const el = document.getElementById('monitorTitle');
+    if (el) el.textContent = title;
+    const label = document.getElementById('queryLabel');
+    if (label) label.textContent = stageIndex === 4 ? 'Command Output' : 'Query Result';
+  }
+}
+
 function getCurrentStageId() {
   return STAGE_IDS[currentStage] || 'intro';
 }
@@ -89,27 +117,57 @@ function restoreStageState(idx, fallbackTitle) {
 }
 
 function resetQueryPanel(title) {
+  const isShellStage = currentStage === 4;
+  const tab = isShellStage ? 'command' : 'query.sql';
+  const comment = isShellStage ? `# ${title}` : `-- ${title}`;
   document.getElementById('queryDisplay').innerHTML =
-    `<div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>` +
+    `<div class="editor-topbar"><span class="tab">${tab}</span><span>HackLab Monitor</span></div>` +
     `<div class="editor-body">` +
     `<div class="line-numbers"><div>1</div></div>` +
-    `<div class="code-area"><span class="sql-comment">-- ${title}</span></div>` +
+    `<div class="code-area"><span class="sql-comment">${comment}</span></div>` +
     `</div>`;
-  document.getElementById('queryResult').innerHTML = '<span style="color: var(--green-dim)">No queries executed yet.</span>';
+  document.getElementById('queryResult').innerHTML = `<span style="color: var(--green-dim)">No ${isShellStage ? 'commands' : 'queries'} executed yet.</span>`;
+}
+
+// ========== FLAG SUBMISSION ==========
+function submitFlag() {
+  const input = document.getElementById('flagInput');
+  const row = document.getElementById('flagRow');
+  const val = input.value.trim();
+  if (!val) return;
+
+  // Send as a terminal command — ws-handler processes it and responds with stagePass or error
+  sendCommand('submit ' + val);
+
+  // Visual feedback will be driven by the ws response (see terminal.js onFlagResult)
+  // Briefly mark as pending
+  row.classList.remove('correct', 'incorrect');
+  input.blur();
+}
+
+// Called from terminal.js when a submit response comes back
+function onFlagResult(correct) {
+  const input = document.getElementById('flagInput');
+  const row = document.getElementById('flagRow');
+  if (correct) {
+    row.classList.add('correct');
+    row.classList.remove('incorrect');
+    input.value = '';
+  } else {
+    row.classList.add('incorrect');
+    row.classList.remove('correct');
+    // Shake animation
+    input.style.animation = 'none';
+    requestAnimationFrame(() => { input.style.animation = 'shake .3s ease'; });
+  }
 }
 
 // ========== TAB MANAGEMENT ==========
+// Terminal and browser are always visible — just handle focus
 function switchTab(tabName) {
-  document.querySelectorAll('.interaction-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-
   if (tabName === 'terminal') {
-    document.getElementById('tabTerminal').classList.add('active');
-    document.querySelector('[data-tab="terminal"]').classList.add('active');
     document.getElementById('terminalInput').focus();
   } else if (tabName === 'urlbar') {
-    document.getElementById('tabUrlbar').classList.add('active');
-    document.querySelector('[data-tab="urlbar"]').classList.add('active');
     document.getElementById('urlbarInput').focus();
   }
 }
@@ -118,6 +176,7 @@ function updateTabsForStage() {
   // All tabs always visible in v2
   stageCompleted = false;
   hintIndex = 0;
+  updateMonitorTitle(currentStage);
   // Restore the tab that was active when user left this stage, or default to terminal
   switchTab(stageActiveTab[currentStage] || 'terminal');
 }
@@ -154,8 +213,16 @@ function jumpToStage(idx) {
       completedStages = new Set(data.completedStages);
       renderStageDots();
       document.getElementById('missionText').innerHTML = data.stage.mission;
+      const fi = document.getElementById('flagInput');
+      if (fi && data.stage.flagPrompt) fi.placeholder = data.stage.flagPrompt;
+      const fr = document.getElementById('flagRow');
+      if (fr) fr.classList.remove('correct', 'incorrect');
       updateTabsForStage();
       restoreStageState(idx, data.stage.title);
+      // Sync the shell's stage so the filesystem updates
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'setStage', stageIndex: data.currentStage }));
+      }
     });
 }
 
@@ -221,7 +288,12 @@ function showSuccess(success) {
     };
     btnNext.style.display = '';
   } else {
-    btnNext.style.display = 'none';
+    btnNext.textContent = 'View Summary →';
+    btnNext.onclick = () => {
+      dismissSuccess();
+      showCompletion();
+    };
+    btnNext.style.display = '';
   }
 
   overlay.classList.add('visible');
@@ -230,6 +302,20 @@ function showSuccess(success) {
 function dismissSuccess() {
   document.getElementById('successOverlay').classList.remove('visible');
   document.getElementById('terminalInput').focus();
+}
+
+function showCompletion() {
+  document.getElementById('completionOverlay').classList.add('visible');
+}
+
+function dismissCompletion() {
+  document.getElementById('completionOverlay').classList.remove('visible');
+  document.getElementById('terminalInput').focus();
+}
+
+function restartFromCompletion() {
+  dismissCompletion();
+  sendCommand('restart');
 }
 
 // ========== RESIZE HANDLES ==========

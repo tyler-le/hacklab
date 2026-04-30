@@ -3,7 +3,7 @@
  */
 
 function cd(ctx, args) {
-  const target = args[0] || '/';
+  const target = args[0] || '/home/www-data';
   const resolved = ctx.fs.resolve(target, ctx.cwd);
   const stat = ctx.fs.stat(target, ctx.cwd);
 

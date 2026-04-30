@@ -51,11 +51,18 @@ function curl(ctx, args) {
     }
     output.push(`<`);
   }
-  output.push(result.body);
+  // If the handler provides plain-text output (e.g. diagnostic), use that for the terminal
+  // instead of dumping raw HTML. The browser iframe still renders the full HTML body.
+  if (result.rawOutput !== undefined) {
+    output.push(result.rawOutput);
+  } else {
+    output.push(result.body);
+  }
 
   return {
     stdout: output.join('\n'),
-    stagePass: result.stagePass || false,
+    stageFlag: result.stageFlag || null,
+    loginSuccess: result.loginSuccess || false,
     query: result.query || null,
     queryResult: result.queryResult || null,
   };

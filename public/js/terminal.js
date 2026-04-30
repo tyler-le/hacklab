@@ -59,7 +59,9 @@ function onGameInit(msg) {
   }
 
   renderStageDots();
+  updateMonitorTitle(currentStage);
   document.getElementById('missionText').innerHTML = msg.stage.mission;
+  const fi = document.getElementById('flagInput'); if (fi && msg.stage.flagPrompt) fi.placeholder = msg.stage.flagPrompt;
 
   printTerminal('<span class="sys">HackLab v2.0 initialized.</span>');
   printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');
@@ -67,7 +69,13 @@ function onGameInit(msg) {
   printTerminal('');
   printTerminal(`<span class="warn">═══ ${msg.stage.title.toUpperCase()} ═══</span>`);
   printTerminal('');
-  printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands, or <span class="cmd">hint</span> for a hint.</span>');
+  if (msg.currentStage === 0) {
+    printTerminal('<span class="info">Start by exploring the server. Type <span class="cmd">ls</span> and press Enter to list files.</span>');
+    printTerminal('<span class="info">Then try <span class="cmd">cat routes.js</span> to read the source code.</span>');
+    printTerminal('<span class="info">Use <span class="cmd">hint</span> if you get stuck, or <span class="cmd">help</span> for all commands.</span>');
+  } else {
+    printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands, or <span class="cmd">hint</span> for a hint.</span>');
+  }
   printTerminal('');
 }
 
@@ -102,6 +110,10 @@ function onCommandResult(msg) {
     completedStages = new Set(sc.completedStages);
     renderStageDots();
     document.getElementById('missionText').innerHTML = sc.stage.mission;
+    const fi2 = document.getElementById('flagInput');
+    if (fi2 && sc.stage.flagPrompt) fi2.placeholder = sc.stage.flagPrompt;
+    const fr2 = document.getElementById('flagRow');
+    if (fr2) { fr2.classList.remove('correct', 'incorrect'); if (fi2) fi2.value = ''; }
     updateTabsForStage();
     restoreStageState(sc.currentStage, sc.stage.title);
   }
@@ -126,9 +138,27 @@ function onCommandResult(msg) {
     }
   }
 
-  // Update SQL monitor
-  if (msg.query) displayQuery(msg.query);
+  // Update monitor panel (SQL or shell command)
+  if (msg.query) {
+    if (msg.queryResult && msg.queryResult.type === 'shell') {
+      displayShellCommand(msg.query);
+    } else {
+      displayQuery(msg.query);
+    }
+  }
   if (msg.queryResult) displayResult(msg.queryResult);
+
+  // Handle flag submission result
+  if (msg.flagResult && typeof onFlagResult === 'function') {
+    onFlagResult(msg.flagResult === 'correct');
+  }
+
+  // Exploit detected via browser navigation
+  if (msg.exploitDetected) {
+    printTerminal('<span class="info">✓ Exploit successful! Find the secret in the browser and submit it above.</span>');
+    const scroll = document.getElementById('terminalScroll');
+    scroll.scrollTop = scroll.scrollHeight;
+  }
 
   // Handle stage completion
   if (msg.stagePass && msg.stageSuccess) {
@@ -290,8 +320,22 @@ function handleInput() {
   sendCommand(raw);
 }
 
-// Script injected into iframe pages to intercept form submissions and links
-const IFRAME_INTERCEPT_SCRIPT = `<script>
+// Early script — override alert before any user-injected XSS scripts run
+const IFRAME_EARLY_SCRIPT = `<script>
+window.alert = function(msg) {
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:monospace';
+  d.innerHTML = '<div style="background:#1a1a2e;border:2px solid #ff4444;border-radius:8px;padding:24px 32px;max-width:90%;text-align:center">'
+    + '<div style="color:#ff4444;font-size:18px;font-weight:bold;margin-bottom:12px">⚠ XSS Alert Triggered!</div>'
+    + '<div style="color:#0f0;background:#000;padding:12px;border-radius:4px;margin-bottom:16px;word-break:break-all">' + String(msg).replace(/</g,'&lt;') + '</div>'
+    + '<button onclick="this.parentElement.parentElement.remove()" style="background:#ff4444;color:#fff;border:none;padding:8px 24px;border-radius:4px;cursor:pointer;font-size:14px">Dismiss</button>'
+    + '</div>';
+  document.body.appendChild(d);
+};
+<\/script>`;
+
+// Late script — intercept form submissions and link clicks
+const IFRAME_LATE_SCRIPT = `<script>
 document.addEventListener('submit', function(e) {
   e.preventDefault();
   var form = e.target;
@@ -300,32 +344,45 @@ document.addEventListener('submit', function(e) {
   for (var pair of data.entries()) {
     params.push(encodeURIComponent(pair[0]) + '=' + encodeURIComponent(pair[1]));
   }
+  // Use getAttribute to avoid about:srcdoc URL resolution issues
+  var rawAction = form.getAttribute('action') || '';
+  var method = (form.getAttribute('method') || 'GET').toUpperCase();
   window.parent.postMessage({
     type: 'iframe-form-submit',
-    method: (form.method || 'GET').toUpperCase(),
-    action: form.action ? new URL(form.action, location.href).pathname : location.pathname,
+    method: method,
+    action: rawAction,
     body: params.join('&')
   }, '*');
 });
 document.addEventListener('click', function(e) {
   var a = e.target.closest('a');
-  if (a && a.href) {
+  if (a && a.getAttribute('href')) {
     e.preventDefault();
-    var url = new URL(a.href, location.href);
+    var raw = a.getAttribute('href');
+    var path = raw.replace(/^https?:\\/\\/[^/]+/, '');
     window.parent.postMessage({
       type: 'iframe-navigate',
-      path: url.pathname + url.search
+      path: path
     }, '*');
   }
 });
 <\/script>`;
 
-// Inject the intercept script into HTML before </body> or at the end
+// Inject early script at the top (before <body> or start), late script at the bottom
 function injectIframeScript(html) {
-  if (html.includes('</body>')) {
-    return html.replace('</body>', IFRAME_INTERCEPT_SCRIPT + '</body>');
+  // Insert alert override as early as possible
+  if (html.includes('<body>')) {
+    html = html.replace('<body>', '<body>' + IFRAME_EARLY_SCRIPT);
+  } else if (html.includes('<body ')) {
+    html = html.replace(/<body[^>]*>/, '$&' + IFRAME_EARLY_SCRIPT);
+  } else {
+    html = IFRAME_EARLY_SCRIPT + html;
   }
-  return html + IFRAME_INTERCEPT_SCRIPT;
+  // Insert form/link intercept at the end
+  if (html.includes('</body>')) {
+    return html.replace('</body>', IFRAME_LATE_SCRIPT + '</body>');
+  }
+  return html + IFRAME_LATE_SCRIPT;
 }
 
 // Listen for messages from the iframe
@@ -334,18 +391,18 @@ window.addEventListener('message', function(e) {
 
   if (e.data.type === 'iframe-form-submit') {
     const { method, action, body } = e.data;
-    // Build and send curl command through the shell for win detection
-    let curlCmd;
-    if (method === 'POST' && body) {
-      curlCmd = `curl -d "${body}" http://localhost:3000${action}`;
-    } else {
-      curlCmd = `curl http://localhost:3000${action}`;
-    }
-    printTerminal(`<span class="sys">${escapeHtml(currentPrompt)}</span> ${escapeHtml(curlCmd)}`);
-    sendCommand(curlCmd);
+    let fetchPath, fetchMethod = method, fetchBody = null;
 
-    // Also fetch the response to render in the iframe
-    loadInBrowser(action, method, body);
+    if (method === 'POST') {
+      fetchPath = action;
+      fetchBody = body;
+    } else {
+      const sep = action.includes('?') ? '&' : '?';
+      fetchPath = body ? `${action}${sep}${body}` : action;
+    }
+
+    // Load in browser silently — win detection via browser-navigate WS message
+    loadInBrowser(fetchPath, fetchMethod, fetchBody);
   }
 
   if (e.data.type === 'iframe-navigate') {
@@ -354,7 +411,7 @@ window.addEventListener('message', function(e) {
   }
 });
 
-// Load a page into the browser iframe
+// Load a page into the browser iframe — silently sends a browser-navigate WS message for win detection
 function loadInBrowser(path, method, body) {
   const placeholder = document.getElementById('browserPlaceholder');
   const frame = document.getElementById('browserFrame');
@@ -368,13 +425,25 @@ function loadInBrowser(path, method, body) {
     fetchOpts.body = body;
   }
 
-  fetch(`/webapp${path}`, fetchOpts)
+  const sep = path.includes('?') ? '&' : '?';
+  fetch(`/webapp${path}${sep}sessionId=${encodeURIComponent(sessionId)}`, fetchOpts)
     .then(r => r.text())
     .then(html => {
       lastBrowserHtml = html;
       frame.style.display = 'block';
       source.style.display = 'none';
       frame.srcdoc = injectIframeScript(html);
+
+      // Silently check win condition via WebSocket — no terminal output for browser navigations
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'browser-navigate',
+          path,
+          method: method || 'GET',
+          body: body || '',
+          sessionId,
+        }));
+      }
     })
     .catch(() => {
       frame.style.display = 'none';
@@ -388,13 +457,11 @@ function submitUrlbar() {
   const urlInput = document.getElementById('urlbarInput');
   let path = urlInput.value.trim();
   if (!path) return;
+  // Strip any http://localhost:PORT prefix so we work with just the path
+  path = path.replace(/^https?:\/\/[^\/]+/, '');
   if (!path.startsWith('/')) path = '/' + path;
 
-  // Also send as a curl command through the terminal for win detection
-  printTerminal(`<span class="sys">${escapeHtml(currentPrompt)}</span> curl http://localhost:3000${escapeHtml(path)}`);
-  sendCommand(`curl http://localhost:3000${path}`);
-
-  // Load in iframe
+  urlInput.value = path;
   loadInBrowser(path);
 }
 

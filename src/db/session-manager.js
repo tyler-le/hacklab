@@ -11,6 +11,13 @@ const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
 // In-memory map of sessionId -> { db, lastAccess }
 const activeSessions = new Map();
 
+// Listeners notified when a session is destroyed (e.g. game.js cleans up gameState)
+const destroyListeners = [];
+
+function onSessionDestroyed(fn) {
+  destroyListeners.push(fn);
+}
+
 function ensureSessionsDir() {
   if (!fs.existsSync(SESSIONS_DIR)) {
     fs.mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -35,7 +42,6 @@ function createSession() {
   fs.copyFileSync(TEMPLATE_PATH, dbPath);
   const db = new Database(dbPath);
   activeSessions.set(sessionId, { db, lastAccess: Date.now() });
-  console.log(`[db] Session created: ${sessionId}`);
   return sessionId;
 }
 
@@ -65,6 +71,9 @@ function destroySession(sessionId) {
   if (fs.existsSync(dbPath)) {
     fs.unlinkSync(dbPath);
   }
+  for (const fn of destroyListeners) {
+    fn(sessionId);
+  }
 }
 
 function cleanupStaleSessions() {
@@ -77,7 +86,16 @@ function cleanupStaleSessions() {
   }
 }
 
-// Run cleanup every 5 minutes
-setInterval(cleanupStaleSessions, 5 * 60 * 1000);
+/** Close all open databases (called on server shutdown). */
+function shutdown() {
+  for (const [sessionId, session] of activeSessions) {
+    session.db.close();
+    activeSessions.delete(sessionId);
+  }
+  console.log('[db] All sessions closed');
+}
 
-module.exports = { createTemplate, createSession, getSession, destroySession };
+// Run cleanup every 5 minutes
+setInterval(cleanupStaleSessions, 5 * 60 * 1000).unref();
+
+module.exports = { createTemplate, createSession, getSession, destroySession, onSessionDestroyed, shutdown };

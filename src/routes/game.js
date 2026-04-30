@@ -6,6 +6,11 @@ const { getStage, getStageCount } = require('../stages/stage-checker');
 // In-memory game state per session
 const gameState = new Map();
 
+// Clean up gameState when sessions are destroyed (TTL expiry, restart, etc.)
+sessionManager.onSessionDestroyed((sessionId) => {
+  gameState.delete(sessionId);
+});
+
 function getGameState(sessionId) {
   if (!gameState.has(sessionId)) {
     gameState.set(sessionId, {
@@ -42,6 +47,7 @@ router.get('/session/:id', (req, res) => {
       id: stage.id,
       title: stage.title,
       mission: stage.mission,
+      flagPrompt: stage.flagPrompt,
     } : null,
   });
 });
@@ -55,7 +61,6 @@ router.get('/stage/:index', (req, res) => {
     id: stage.id,
     title: stage.title,
     mission: stage.mission,
-    helpCommands: stage.helpCommands,
   });
 });
 
@@ -86,6 +91,7 @@ router.post('/stage/switch', (req, res) => {
       id: stage.id,
       title: stage.title,
       mission: stage.mission,
+      flagPrompt: stage.flagPrompt,
     },
   });
 });
@@ -113,6 +119,7 @@ router.post('/stage/next', (req, res) => {
       id: stage.id,
       title: stage.title,
       mission: stage.mission,
+      flagPrompt: stage.flagPrompt,
     },
   });
 });
@@ -130,21 +137,6 @@ router.post('/hint', (req, res) => {
   }
 
   res.json({ hint: stage.hints[hintIndex], hintIndex });
-});
-
-// GET /api/view-source — returns the HTML source with the intentional vulnerability
-router.get('/view-source', (req, res) => {
-  res.json({
-    source: [
-      '<form action="/auth" method="POST">',
-      '  <input name="username" />',
-      '  <input name="password" type="password" />',
-      '  <!-- TODO: remove before deploy -->',
-      '  <!-- default test account: admin / password123 -->',
-      '  <button type="submit">Sign In</button>',
-      '</form>',
-    ].join('\n'),
-  });
 });
 
 // POST /api/reset — reset the game session

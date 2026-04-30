@@ -104,12 +104,36 @@ function displayQuery(sql) {
     `</div>`;
 }
 
+function displayShellCommand(cmd) {
+  const escaped = escapeHtml(cmd);
+  // Simple shell highlighting: commands, flags, separators, paths
+  const highlighted = escaped
+    .replace(/\b(ping|cat|head|tail|less|more|strings|whoami|id|hostname|ls|grep|find|curl|echo)\b/g, '<span class="sql-keyword">$1</span>')
+    .replace(/(\s)(-\w+)/g, '$1<span class="sql-function">$2</span>')
+    .replace(/(\/[\w./]+)/g, '<span class="sql-string">$1</span>')
+    .replace(/([;&|]{1,2})/g, '<span class="sql-operator">$1</span>');
+
+  document.getElementById('queryDisplay').innerHTML =
+    `<div class="editor-topbar"><span class="tab">command</span><span>HackLab Monitor</span></div>` +
+    `<div class="editor-body">` +
+    `<div class="line-numbers"><div>1</div></div>` +
+    `<div class="code-area">${highlighted}</div>` +
+    `</div>`;
+}
+
 function displayResult(result) {
   const el = document.getElementById('queryResult');
   el.className = 'query-result';
 
   if (!result) {
     el.innerHTML = `<span style="color: var(--green-dim)">Query returned 0 rows.</span>`;
+    return;
+  }
+
+  // Shell command output (Stage 5)
+  if (result.type === 'shell') {
+    el.className = 'query-result success';
+    el.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-family:inherit">${escapeHtml(result.output)}</pre>`;
     return;
   }
 
@@ -121,13 +145,17 @@ function displayResult(result) {
 
   if (result.rows && result.rows.length > 0) {
     el.className = 'query-result success';
-    const cols = result.cols || Object.keys(result.rows[0]);
+    const cols = result.columns || result.cols || Object.keys(result.rows[0]);
     let html = '<table class="result-table"><thead><tr>';
     for (const c of cols) html += `<th>${escapeHtml(c)}</th>`;
     html += '</tr></thead><tbody>';
     for (const row of result.rows) {
       html += '<tr>';
-      for (const c of cols) html += `<td>${escapeHtml(row[c] ?? '')}</td>`;
+      if (Array.isArray(row)) {
+        for (const val of row) html += `<td>${escapeHtml(val ?? '')}</td>`;
+      } else {
+        for (const c of cols) html += `<td>${escapeHtml(row[c] ?? '')}</td>`;
+      }
       html += '</tr>';
     }
     html += '</tbody></table>';

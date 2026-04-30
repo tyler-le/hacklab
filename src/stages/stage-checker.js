@@ -3,9 +3,9 @@ const STAGES = [
   {
     id: 'intro',
     title: 'Stage 1: Information Leakage',
-    mission: `<span class="highlight">SCENARIO:</span> You have shell access to the MegaCorp web server as <span class="cmd">www-data</span>. Their employee portal is running at <span class="cmd">http://localhost:3000</span>.
+    mission: `<span class="highlight">SCENARIO:</span> You have shell access to the MegaCorp web server. Their employee portal is running at <span class="cmd">http://localhost:3000</span>.
 
-<span class="highlight">OBJECTIVE:</span> Find valid credentials and log in to the portal.
+<span class="highlight">OBJECTIVE:</span> Find valid credentials, log in to the portal, and <span class="cmd">submit</span> the admin API key you find inside.
 
 <span class="highlight">TIP:</span> Explore the web server files. Developers sometimes leave sensitive information in places they shouldn't.`,
     hints: [
@@ -13,6 +13,7 @@ const STAGES = [
       "Read the source code: cat /var/www/megacorp/routes.js — look for the login route.",
       "The login page has an HTML comment with test credentials. Use: curl -d \"user=admin&pass=password123\" http://localhost:3000/login",
     ],
+    flagPrompt: 'Enter the Admin API key you found...',
     success: {
       title: 'Information Leakage Exploited!',
       subtitle: 'You found credentials hidden in the page source code.',
@@ -28,14 +29,15 @@ DEFENSE: Never put secrets in client-side code. Use environment variables and st
     title: 'Stage 2: Broken Access Control',
     mission: `<span class="highlight">SCENARIO:</span> You're logged in as employee <span class="cmd">jsmith</span> (id=1). The portal has an API endpoint for employee profiles.
 
-<span class="highlight">OBJECTIVE:</span> Access the admin's profile and find their sensitive data (API keys, SSH access).
+<span class="highlight">OBJECTIVE:</span> Access the admin's profile, steal their personal access token, then <span class="cmd">submit</span> it to complete the stage.
 
 <span class="highlight">TIP:</span> Read the server source code to find the API endpoints. What parameters do they take?`,
     hints: [
-      "Read the routes: cat /var/www/megacorp/routes.js — look for the employees endpoint.",
-      "The API is at /api/employees/:id with no authorization check. Try different IDs.",
+      "Read the source code: cat routes.js — look at the employees endpoint and its comments.",
+      "Check notes.txt for the employee ID list. The API has no authorization check — try different IDs.",
       "The admin is at id=4. Try: curl http://localhost:3000/api/employees/4",
     ],
+    flagPrompt: 'Enter the Personal Access Token you found...',
     success: {
       title: 'Broken Access Control Exploited!',
       subtitle: "You accessed the admin's profile by changing the ID in the URL.",
@@ -49,24 +51,25 @@ DEFENSE: Always check authorization on every request. Use random UUIDs instead o
   {
     id: 'xss',
     title: 'Stage 3: Cross-Site Scripting (XSS)',
-    mission: `<span class="highlight">SCENARIO:</span> The employee directory has a search API at <span class="cmd">/api/search</span>. It renders your search term directly into the HTML response.
+    mission: `<span class="highlight">SCENARIO:</span> The employee directory has a search page at <span class="cmd">/api/search</span>. The admin browses this page while logged in — their session cookie is stored in the browser.
 
-<span class="highlight">OBJECTIVE:</span> Inject JavaScript that steals the admin's session cookie. The function <span class="cmd">stealCookie()</span> is available on the page.
+<span class="highlight">OBJECTIVE:</span> Inject <span class="cmd">alert(document.cookie)</span> into the search page to expose the admin's session token, then <span class="cmd">submit</span> the token value.
 
-<span class="highlight">TIP:</span> Read the source code to see how the search results are rendered. Is user input being escaped?`,
+<span class="highlight">TIP:</span> Read the source code to see how user input is rendered. Is it escaped before being inserted into the HTML?`,
     hints: [
-      "Read the source: cat /var/www/megacorp/routes.js — look at the /api/search route and the BUG comment.",
-      "Test with HTML: curl \"http://localhost:3000/api/search?q=<b>test</b>\" — is it rendered as HTML?",
-      "Inject a script: curl \"http://localhost:3000/api/search?q=<script>stealCookie()</script>\"",
+      "Read the source: cat /var/www/megacorp/routes.js — look at how the search term is rendered in the HTML. Is it escaped?",
+      "Test HTML injection: curl \"http://localhost:3000/api/search?q=<b>test</b>\" — if 'test' appears bold, the input isn't escaped. Now try a &lt;script&gt; tag.",
+      "Read the cookie: curl \"http://localhost:3000/api/search?q=<script>alert(document.cookie)</script>\"",
     ],
+    flagPrompt: 'Enter the session cookie value you stole...',
     success: {
       title: 'XSS Attack Successful!',
       subtitle: "You stole the admin's session cookie via cross-site scripting.",
-      explanation: `You injected a script tag into the search results. The server inserted your input directly into HTML without escaping, so the browser executed it as JavaScript.
+      explanation: `You injected a <script> tag into the search results. Because the server didn't escape your input, the browser executed your JavaScript — which read the admin's session cookie via document.cookie.
 
-In the real world, you'd embed this in a URL and send it to a victim. When they click it, the script runs in their browser. This is "Reflected XSS."
+In the real world, an attacker would embed this in a URL and trick the admin into clicking it. The script runs in the context of the trusted site, giving the attacker access to cookies, tokens, and session data. This is called "Reflected XSS."
 
-DEFENSE: Escape all user input before rendering in HTML. Set HttpOnly on cookies. Use Content-Security-Policy headers.`,
+DEFENSE: Escape all user input before rendering in HTML. Set HttpOnly on cookies so JavaScript can't read them. Use Content-Security-Policy headers.`,
     },
   },
   {
@@ -74,7 +77,7 @@ DEFENSE: Escape all user input before rendering in HTML. Set HttpOnly on cookies
     title: 'Stage 4: SQL Injection',
     mission: `<span class="highlight">SCENARIO:</span> MegaCorp has a separate admin login at <span class="cmd">/api/admin/login</span>. It uses a SQL query to check credentials.
 
-<span class="highlight">OBJECTIVE:</span> Log in to the admin panel without knowing any password.
+<span class="highlight">OBJECTIVE:</span> Bypass the login without knowing any password, then <span class="cmd">submit</span> the database master password exposed in the admin panel.
 
 <span class="highlight">TIP:</span> Read the source code. How does the admin login build its SQL query compared to the regular login?`,
     hints: [
@@ -82,6 +85,7 @@ DEFENSE: Escape all user input before rendering in HTML. Set HttpOnly on cookies
       "Probe for SQL injection: curl -X POST -d \"user='\" http://localhost:3000/api/admin/login — the error reveals the query structure.",
       "Inject: curl -X POST -d \"user=' OR 1=1 --&pass=x\" http://localhost:3000/api/admin/login",
     ],
+    flagPrompt: 'Enter the database master password you found...',
     success: {
       title: 'Authentication Bypassed!',
       subtitle: 'You logged in without knowing any password using SQL injection.',
@@ -96,16 +100,17 @@ DEFENSE: Use parameterized queries — never concatenate user input into SQL.`,
   {
     id: 'command_injection',
     title: 'Stage 5: Command Injection',
-    mission: `<span class="highlight">SCENARIO:</span> MegaCorp has a server diagnostic tool at <span class="cmd">/api/diagnostic</span> that pings hosts. It runs a shell command on the server.
+    mission: `<span class="highlight">SCENARIO:</span> MegaCorp has an internal server diagnostic tool at <span class="cmd">/api/diagnostic</span>. It takes a hostname and pings it — your input is passed directly to a shell command with no sanitization.
 
-<span class="highlight">OBJECTIVE:</span> Exploit the diagnostic tool to read <span class="cmd">/etc/secrets/api_keys.txt</span>.
+<span class="highlight">OBJECTIVE:</span> Exploit the tool to expose the contents of <span class="cmd">/etc/secrets/api_keys.txt</span>. Find the <span class="cmd">AWS_SECRET_KEY</span> value and submit it.
 
-<span class="highlight">TIP:</span> Read the source to see how it handles your input. In a shell, you can chain commands with <span class="cmd">;</span>`,
+<span class="highlight">TIP:</span> In a shell, <span class="cmd">;</span> separates commands. The Host field is your injection point.`,
     hints: [
-      "Read the source: cat /var/www/megacorp/routes.js — look at the /api/diagnostic route and the execSync call.",
-      "Test it: curl \"http://localhost:3000/api/diagnostic?host=localhost\" — confirm it works.",
-      "Inject: curl \"http://localhost:3000/api/diagnostic?host=localhost;cat /etc/secrets/api_keys.txt\"",
+      "Navigate to /api/diagnostic in the browser. Enter 'localhost' — it runs a real ping. Your input goes straight into a shell command on the server.",
+      "Read the source: cat /var/www/megacorp/diagnostic.php — see how your input is used with no sanitization before execSync.",
+      "Use ; to chain a second command after the ping. Try reading the secrets file.",
     ],
+    flagPrompt: 'Enter the AWS secret key you leaked...',
     success: {
       title: 'Command Injection Successful!',
       subtitle: 'You executed arbitrary commands on the server and stole secret API keys.',
