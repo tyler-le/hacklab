@@ -27,7 +27,7 @@ DEFENSE: Never put secrets in client-side code. Use environment variables and st
   {
     id: 'idor',
     title: 'Stage 2: Broken Access Control',
-    mission: `<span class="highlight">SCENARIO:</span> You're logged in as employee <span class="cmd">jsmith</span> (id=1). The portal has an API endpoint for employee profiles.
+    mission: `<span class="highlight">SCENARIO:</span> You're logged in as employee <span class="cmd">jsmith</span> (id=1). The portal has an API endpoint for employee profiles at <span class="cmd">/api/employees/:id</span>.
 
 <span class="highlight">OBJECTIVE:</span> Access the admin's profile, steal their personal access token, then <span class="cmd">submit</span> it to complete the stage.
 
@@ -102,7 +102,7 @@ DEFENSE: Use parameterized queries — never concatenate user input into SQL.`,
     title: 'Stage 5: Command Injection',
     mission: `<span class="highlight">SCENARIO:</span> MegaCorp has an internal server diagnostic tool at <span class="cmd">/api/diagnostic</span>. It takes a hostname and pings it — your input is passed directly to a shell command with no sanitization.
 
-<span class="highlight">OBJECTIVE:</span> Exploit the tool to expose the contents of <span class="cmd">/etc/secrets/api_keys.txt</span>. Find the <span class="cmd">AWS_SECRET_KEY</span> value and submit it.
+<span class="highlight">OBJECTIVE:</span> Exploit the tool and use <span class="cmd">cat /etc/secrets/api_keys.txt</span> to print the file contents. Find the <span class="cmd">AWS_SECRET_KEY</span> value and submit it.
 
 <span class="highlight">TIP:</span> In a shell, <span class="cmd">;</span> separates commands. The Host field is your injection point.`,
     hints: [

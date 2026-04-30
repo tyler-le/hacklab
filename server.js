@@ -49,6 +49,9 @@ wss.on('connection', (ws) => {
 
 server.listen(PORT, () => {
   console.log(`[server] HackLab running at http://localhost:${PORT}`);
+  if (process.env.ENABLE_REAL_SHELL === '1') {
+    console.log('[server] Real shell scaffold enabled (development-only mode)');
+  }
 });
 
 // Graceful shutdown

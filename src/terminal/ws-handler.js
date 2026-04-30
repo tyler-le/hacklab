@@ -2,6 +2,7 @@ const sessionManager = require('../db/session-manager');
 const { getStage, getStageCount } = require('../stages/stage-checker');
 const { getGameState } = require('../routes/game');
 const ShellSession = require('../shell/shell');
+const RealShellSession = require('../sandbox/real-shell-session');
 const { escapeHtml } = require('../utils');
 
 function getNudge(stageIndex, result, command) {
@@ -57,6 +58,7 @@ function getNudge(stageIndex, result, command) {
 function handleWebSocket(ws) {
   let sessionId = null;
   let shell = null;
+  const useRealShell = process.env.ENABLE_REAL_SHELL === '1';
 
   ws.on('message', (data) => {
     let msg;
@@ -87,6 +89,12 @@ function handleWebSocket(ws) {
     }
   });
 
+  ws.on('close', () => {
+    if (shell && typeof shell.destroy === 'function') {
+      shell.destroy();
+    }
+  });
+
   function send(payload) {
     ws.send(JSON.stringify({ type: 'result', ...payload }));
   }
@@ -98,7 +106,9 @@ function handleWebSocket(ws) {
         sessionId = msg.sessionId;
         const state = getGameState(sessionId);
         const stage = getStage(state.currentStage);
-        shell = new ShellSession(sessionId, state.currentStage);
+        shell = useRealShell
+          ? new RealShellSession(sessionId, state.currentStage)
+          : new ShellSession(sessionId, state.currentStage);
 
         ws.send(JSON.stringify({
           type: 'init',
@@ -117,7 +127,9 @@ function handleWebSocket(ws) {
     sessionId = sessionManager.createSession();
     const state = getGameState(sessionId);
     const stage = getStage(0);
-    shell = new ShellSession(sessionId, 0);
+    shell = useRealShell
+      ? new RealShellSession(sessionId, 0)
+      : new ShellSession(sessionId, 0);
 
     ws.send(JSON.stringify({
       type: 'init',
@@ -178,7 +190,9 @@ function handleWebSocket(ws) {
       const newState = getGameState(sessionId);
       newState.currentStage = 0;
       newState.completedStages = new Set();
-      shell = new ShellSession(sessionId, 0);
+      shell = useRealShell
+        ? new RealShellSession(sessionId, 0)
+        : new ShellSession(sessionId, 0);
 
       const s = getStage(0);
       send({

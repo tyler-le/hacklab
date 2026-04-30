@@ -162,7 +162,8 @@ function handleLogin(postData, db) {
 
   try {
     const row = db.prepare(sqlQuery).get(user, pass);
-    const exploitFired = row && user === 'admin' && pass === 'password123';
+    // Outcome-based: any successful admin login satisfies stage 1.
+    const exploitFired = row && row.role === 'admin';
 
     if (row) {
       const isAdmin = row.role === 'admin';
@@ -244,15 +245,17 @@ function handleSearch(query, db) {
   const displayQuery = `SELECT username, email, department FROM users WHERE username LIKE '%${q}%' OR department LIKE '%${q}%'`;
   const rows = db.prepare(sqlQuery).all(`%${q}%`, `%${q}%`);
 
-  const hasScript = /<script[\s>]/i.test(q);
-  const readsCookie = /document\.cookie/i.test(q);
+  const hasActiveJsVector = /<script[\s>]|on\w+\s*=|javascript:/i.test(q);
+  const readsCookie = /document\.cookie|cookie/i.test(q);
+  const exfilAttempt = /fetch\s*\(|xmlhttprequest|navigator\.sendBeacon|\/api\/log|stealCookie/i.test(q);
 
   const resultsHtml = rows.map(r =>
     `<tr><td>${escapeHtml(r.username)}</td><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.department)}</td></tr>`
   ).join('\n');
 
   const cookieVal = STAGE_FLAGS[2]; // admin_token_7f3k9x
-  const exploitFired = hasScript && readsCookie;
+  // Outcome-oriented heuristic: payload can execute JS and references cookie handling.
+  const exploitFired = hasActiveJsVector && (readsCookie || exfilAttempt);
 
   return {
     status: 200,
@@ -390,10 +393,12 @@ function handleAdminLogin(postData, db) {
   try {
     const rows = db.prepare(sqlQuery).all();
     const loginOk = rows.length > 0;
-    const hasOrTautology = /OR\s+[\d']\s*=\s*[\d']/i.test(sqlQuery) || /OR\s+1\s*=\s*1/i.test(sqlQuery);
+    // Use the safe parameterized check as the baseline.
+    const legitRow = db.prepare('SELECT * FROM users WHERE username = ? AND password = ?').get(user, pass);
 
     if (loginOk) {
-      const exploitFired = hasOrTautology && loginOk;
+      // Outcome-based: if vulnerable query logs in but safe query would not, injection succeeded.
+      const exploitFired = loginOk && !legitRow;
       let adminDashHtml = buildAdminPanel(rows, db);
       return {
         status: 200,
@@ -489,21 +494,21 @@ function handleDiagnostic(query) {
     ? `PING localhost (127.0.0.1): 56 data bytes\n64 bytes from 127.0.0.1: icmp_seq=0 ttl=64 time=0.042 ms\n--- ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss`
     : `PING ${pingTarget}: 56 data bytes\nRequest timeout for icmp_seq 0\n--- ping statistics ---\n1 packets transmitted, 0 received, 100% packet loss`;
 
-  // Simulate injected commands
+  // Simulate injected commands with permissive parsing so payload style is flexible.
   const injectedOutputs = [];
   if (hasSeparator) {
-    const commands = parseShellCommands(host);
-    for (let i = 1; i < commands.length; i++) {
-      injectedOutputs.push(simulateCommand(commands[i]));
+    const commandParts = host.split(/\s*(?:;|&&|\|\||\|)\s*/);
+    for (let i = 1; i < commandParts.length; i++) {
+      const cmd = commandParts[i].trim();
+      if (!cmd) continue;
+      injectedOutputs.push(simulateCommand(cmd));
     }
   }
 
-  // Win: any separator + any file-reading command + the secrets file path,
-  // and we actually surfaced secret-like output.
-  const hasReadCmd = /\b(cat|head|tail|less|more|strings|xxd|od|grep|awk|sed|tac|nl|cut|sort|uniq|printf|echo)\b/.test(host);
+  // Win by outcome: exploit fired and secret material appears in output.
   const hasSecretFile = /\/etc\/secrets\/api_keys/.test(host);
   const leakedSecrets = injectedOutputs.filter(Boolean).join('\n').trim();
-  const stagePass = hasSeparator && hasSecretFile && hasReadCmd && leakedSecrets.includes('AKIA');
+  const stagePass = hasSeparator && hasSecretFile && leakedSecrets.includes('AKIA');
 
   const output = pingOutput + (injectedOutputs.length ? '\n' + injectedOutputs.join('\n') : '');
   const outputHtml = escapeHtml(output).replace(/\n/g, '<br>');
@@ -735,6 +740,16 @@ function simulateCommand(cmd) {
   if (cmd === 'hostname') return 'megacorp-web-01';
   if (cmd === 'ls /etc/secrets' || cmd === 'ls /etc/secrets/') return 'api_keys.txt';
 
+  // Support basic command substitution patterns for realism.
+  const subshellMatch = cmd.match(/^(?:echo|printf)\s+["']?\$\((.+)\)["']?$/);
+  if (subshellMatch) {
+    return simulateCommand(subshellMatch[1].trim());
+  }
+  const backtickMatch = cmd.match(/^(?:echo|printf)\s+["']?`(.+)`["']?$/);
+  if (backtickMatch) {
+    return simulateCommand(backtickMatch[1].trim());
+  }
+
   // File-reading commands: cat, head, tail, less, more, strings, tac, nl
   const readMatch = cmd.match(/^(cat|head|tail|less|more|strings|tac|nl)\s+(.*)/);
   if (readMatch) {
@@ -756,8 +771,9 @@ function simulateCommand(cmd) {
     } catch { return content; }
   }
 
-  // echo — just echo back (useful for blind injection testing)
+  // echo/printf — just echo back (useful for blind injection testing)
   if (cmd.startsWith('echo ')) return cmd.slice(5).replace(/['"]/g, '');
+  if (cmd.startsWith('printf ')) return cmd.slice(7).replace(/['"]/g, '');
 
   // awk/sed reading a file
   const awkMatch = cmd.match(/\b(awk|sed)\b.*\s+(\/\S+)$/);
