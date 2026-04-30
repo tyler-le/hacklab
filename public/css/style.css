@@ -53,14 +53,14 @@ body::after {
 .mission-strip {
   display: flex;
   flex-direction: column;
-  max-height: 200px;
+  height: auto;
   flex-shrink: 0;
 }
 
 .mission-text {
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
+  overflow: visible;
+  flex: 0 0 auto;
+  min-height: auto;
   font-size: 0.85rem;
   line-height: 1.65;
   white-space: pre-wrap;
