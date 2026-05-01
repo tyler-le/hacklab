@@ -151,11 +151,14 @@ function handleWebSocket(ws) {
   }
 
   function handleInit(msg) {
+    const devUnlock = process.env.DEV_UNLOCK === '1';
+
     if (msg.sessionId) {
       const db = sessionManager.getSession(msg.sessionId);
       if (db) {
         sessionId = msg.sessionId;
         const state = getGameState(sessionId);
+        if (devUnlock) state.advancedUnlocked = true;
         const stage = getStage(state.currentStage);
         shell = useRealShell
           ? new RealShellSession(sessionId, state.currentStage)
@@ -169,6 +172,7 @@ function handleWebSocket(ws) {
           stageCount: getStageCount(),
           stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
           prompt: shell.getPrompt(),
+          devUnlock,
         }));
         return;
       }
@@ -177,6 +181,7 @@ function handleWebSocket(ws) {
     // Create new session
     sessionId = sessionManager.createSession();
     const state = getGameState(sessionId);
+    if (devUnlock) state.advancedUnlocked = true;
     const stage = getStage(0);
     shell = useRealShell
       ? new RealShellSession(sessionId, 0)
@@ -190,6 +195,7 @@ function handleWebSocket(ws) {
       stageCount: getStageCount(),
       stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
       prompt: shell.getPrompt(),
+      devUnlock,
     }));
   }
 

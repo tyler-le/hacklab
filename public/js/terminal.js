@@ -52,6 +52,7 @@ function onGameInit(msg) {
   currentStage = msg.currentStage;
   completedStages = new Set(msg.completedStages);
   stageCount = msg.stageCount;
+  if (msg.devUnlock) advancedUnlocked = true;
 
   if (msg.prompt) {
     currentPrompt = msg.prompt;
