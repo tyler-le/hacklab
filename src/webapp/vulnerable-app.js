@@ -13,6 +13,11 @@ const STAGE_FLAGS = {
   2: 'admin_token_7f3k9x',           // Stage 3: Session cookie stolen via XSS
   3: 'Pr0d_DB_M@st3r_Xk9m',         // Stage 4: DB master password exposed via SQL injection
   4: 'AKIA3R9F8GHSL29XKMP4',         // Stage 5: AWS key read via command injection
+  5: 'SENTINEL_CTRL_8x2kPq',         // Stage 6: Sentinel control token via cookie tamper
+  6: 'CASE_FILE_9mK3xR7',            // Stage 7: Case file flag via verb tampering
+  7: 'DB_CRED_Xp2mK9qL',             // Stage 8: DB credential via verbose error
+  8: 'DEBUG_KEY_7f3kXq9m',           // Stage 9: Debug key via hidden param
+  9: 'MASTER_KEY_Zx9mK2pQrL',        // Stage 10: Master key via path traversal
 };
 
 // Which routes are available per stage.
@@ -23,6 +28,11 @@ const STAGE_ROUTES = {
   2: ['/api/search', '/api/log'],  // Stage 3: XSS
   3: ['/api/admin/login'],        // Stage 4: SQL Injection
   4: ['/api/diagnostic'],         // Stage 5: Command Injection
+  5: ['/sentinel'],               // Stage 6: Cookie Tampering
+  6: ['/sentinel'],               // Stage 7: HTTP Verb Tampering
+  7: ['/sentinel'],               // Stage 8: Verbose Errors
+  8: ['/sentinel'],               // Stage 9: Hidden Debug Param
+  9: ['/sentinel'],               // Stage 10: Path Traversal
 };
 
 /**
@@ -32,9 +42,10 @@ const STAGE_ROUTES = {
  * @param {string} body - POST body (URL-encoded or JSON)
  * @param {string} sessionId - player session
  * @param {number} [stageIndex] - current stage (restricts available routes)
+ * @param {object} [headers] - custom request headers (e.g. Cookie)
  * @returns {{ status: number, headers: object, body: string, stagePass?: boolean, query?: string, queryResult?: object }}
  */
-function handleRequest(method, url, body, sessionId, stageIndex) {
+function handleRequest(method, url, body, sessionId, stageIndex, headers) {
   const db = sessionManager.getSession(sessionId);
   if (!db) return { status: 500, headers: { 'Content-Type': 'application/json' }, body: '{"error":"Internal Server Error"}' };
 
@@ -72,6 +83,16 @@ function handleRequest(method, url, body, sessionId, stageIndex) {
   if (route === '/api/admin/login' && method === 'GET') return handleAdminLoginPage();
   if (route === '/api/diagnostic') return handleDiagnostic(query);
 
+  // --- Sentinel routes (Operation Blacksite stages 6-10) ---
+  if (route === '/sentinel' || route === '/sentinel/') return handleSentinelIndex(stageIndex);
+  if (route === '/sentinel/login' && method === 'GET') return handleSentinelLoginPage();
+  if (route === '/sentinel/login' && method === 'POST') return handleSentinelLogin(postData, db);
+  if (route === '/sentinel/dashboard') return handleSentinelDashboard(query, headers || {});
+  if (route === '/sentinel/evidence') return handleSentinelEvidence(method);
+  if (route === '/sentinel/report') return handleSentinelReport(query);
+  if (route === '/sentinel/exports') return handleSentinelExports(query);
+  if (route === '/sentinel/download') return handleSentinelDownload(query);
+
   return {
     status: 404,
     headers: { 'Content-Type': 'application/json' },
@@ -86,6 +107,11 @@ function handleIndex(stageIndex) {
     2: '<a href="/api/search?q=">Employee Search</a>',
     3: '<a href="/api/admin/login">Admin Login</a>',
     4: '<a href="/api/diagnostic?host=localhost">Server Diagnostics</a>',
+    5: '<a href="/sentinel/login">Sentinel Portal</a>',
+    6: '<a href="/sentinel/evidence">Evidence Locker</a>',
+    7: '<a href="/sentinel/report">Report Generator</a>',
+    8: '<a href="/sentinel/exports">System Exports</a>',
+    9: '<a href="/sentinel/download">File Downloads</a>',
   };
   const navHtml = stageIndex !== undefined
     ? links[stageIndex] || ''
@@ -731,6 +757,16 @@ function buildLoginError(message, returnPath) {
 const FAKE_FS = {
   '/etc/secrets/api_keys.txt': 'AWS_SECRET_KEY=AKIA3R9F8GHSL29XKMP4\nSTRIPE_LIVE_KEY=sk_live_4eC39HqLyjWDarjtT1\nDATABASE_URL=postgres://admin:S3cretP@ss!@prod-db:5432/megacorp',
   '/etc/passwd': 'root:x:0:0:root:/root:/bin/bash\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin',
+  '/etc/sentinel/master.key': `MASTER_KEY_Zx9mK2pQrL
+# Project Sentinel — Master Encryption Key
+# Generated: 2024-03-01 | Rotated: NEVER
+# WARNING: This key encrypts all surveillance data for 4,200 employees
+# KEEP OFFLINE — DO NOT COMMIT TO SOURCE CONTROL
+algorithm: AES-256-GCM
+key_id: sentinel-master-v1
+issued_to: MegaCorp Security Division
+expires: 2099-12-31`,
+  '/var/sentinel/files/report.pdf': '[Binary PDF — Quarterly Surveillance Report Q4 2024]',
 };
 
 function simulateCommand(cmd) {
@@ -828,6 +864,665 @@ function parseBody(body) {
     data[decodeURIComponent(k)] = decodeURIComponent(v.join('=').replace(/\+/g, ' '));
   }
   return data;
+}
+
+// ============================================================
+// SENTINEL HANDLERS — Operation Blacksite stages
+// ============================================================
+
+const SENTINEL_CSS = `
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#080808;color:#cc0000;min-height:100vh;display:flex;flex-direction:column}
+.s-topbar{background:#0d0000;border-bottom:2px solid #440000;padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.s-logo{font-size:18px;font-weight:700;color:#cc0000;letter-spacing:3px}
+.s-badge{background:#cc0000;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:2px}
+.s-main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 16px}
+.s-card{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:40px;width:100%;max-width:420px;box-shadow:0 0 40px rgba(180,0,0,.2)}
+.s-card h2{font-size:20px;color:#ff2200;margin-bottom:6px;letter-spacing:2px}
+.s-card p{color:#880000;font-size:13px;margin-bottom:28px}
+.s-warn{background:#1a0000;border:1px solid #440000;border-radius:4px;padding:10px 14px;margin-bottom:20px;font-size:11px;color:#880000;letter-spacing:.5px}
+.s-err{background:#1a0000;border:1px solid #cc0000;border-radius:4px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#ff4444}
+label{display:block;font-size:11px;font-weight:700;color:#880000;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+input{width:100%;padding:10px 14px;background:#050000;border:1px solid #440000;border-radius:4px;font-size:13px;color:#cc0000;margin-bottom:16px;outline:none;font-family:inherit}
+input:focus{border-color:#cc0000}
+input::placeholder{color:#440000}
+button{width:100%;padding:11px;background:#8b0000;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase}
+button:hover{background:#cc0000}
+.s-footer{text-align:center;color:#440000;font-size:11px;padding:16px;letter-spacing:1px}
+`;
+
+function handleSentinelIndex(stageIndex) {
+  const links = {
+    5: '<a href="/sentinel/login" style="color:#cc0000">Sentinel Login</a>',
+    6: '<a href="/sentinel/evidence" style="color:#cc0000">Evidence Locker</a>',
+    7: '<a href="/sentinel/report?id=1" style="color:#cc0000">Report Generator</a>',
+    8: '<a href="/sentinel/exports" style="color:#cc0000">System Exports</a>',
+    9: '<a href="/sentinel/download?file=report.pdf" style="color:#cc0000">File Downloads</a>',
+  };
+  const link = stageIndex !== undefined ? (links[stageIndex] || '') : Object.values(links).join(' | ');
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html><html><head><title>Project Sentinel</title><style>${SENTINEL_CSS}</style></head><body>
+<div class="s-topbar"><span class="s-logo">PROJECT SENTINEL</span><span class="s-badge">CLASSIFIED</span></div>
+<div class="s-main"><div class="s-card">
+<h2>SENTINEL NETWORK</h2>
+<p style="color:#cc0000;margin-bottom:20px">Authorized personnel only.</p>
+<nav>${link}</nav>
+</div></div></body></html>`,
+  };
+}
+
+function handleSentinelLoginPage(errorMsg = '') {
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>Project Sentinel — Secure Access</title>
+<style>${SENTINEL_CSS}</style>
+</head>
+<body>
+<div class="s-topbar">
+  <span class="s-logo">&#9670; PROJECT SENTINEL</span>
+  <span class="s-badge">CLASSIFIED</span>
+</div>
+<div class="s-main">
+  <div class="s-card">
+    <h2>SECURE ACCESS</h2>
+    <p>Authorized personnel only. All access is logged and monitored.</p>
+    <div class="s-warn">&#9888; CLEARANCE REQUIRED &mdash; Unauthorized access will be prosecuted under federal law.</div>
+    <form method="POST" action="/sentinel/login" autocomplete="off">
+      ${errorMsg ? `<div class="s-err">&#10007; ${escapeHtml(errorMsg)}</div>` : ''}
+      <label>Username</label>
+      <input name="user" placeholder="Enter username" autocomplete="off" />
+      <label>Password</label>
+      <input name="pass" type="text" placeholder="Enter password" autocomplete="off" />
+      <button type="submit">Authenticate</button>
+    </form>
+  </div>
+</div>
+<div class="s-footer">SENTINEL NETWORK v4.2 &mdash; MEGACORP SECURITY DIVISION &mdash; EYES ONLY</div>
+</body>
+</html>`,
+  };
+}
+
+function handleSentinelLogin(postData, db) {
+  const user = postData.user || '';
+  const pass = postData.pass || '';
+  const sqlQuery = `SELECT * FROM users WHERE username = ? AND password = ?`;
+
+  try {
+    const row = db.prepare(sqlQuery).get(user, pass);
+    if (row) {
+      const loginHtml = `<!DOCTYPE html>
+<html>
+<head><title>Sentinel — Login Success</title>
+<style>${SENTINEL_CSS}
+.s-success{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:480px;margin:40px auto}
+.s-success h2{color:#ff2200;font-size:18px;letter-spacing:2px;margin-bottom:12px}
+.s-success p{color:#880000;font-size:13px;line-height:1.6;margin-bottom:8px}
+.s-cookie{background:#050000;border:1px solid #440000;border-radius:4px;padding:12px;font-size:12px;color:#cc0000;text-align:left;margin:16px 0;word-break:break-all}
+.s-nav a{color:#cc0000;font-size:13px;text-decoration:none;border:1px solid #440000;padding:6px 16px;border-radius:4px;display:inline-block;margin-top:12px}
+.s-nav a:hover{background:#1a0000}
+</style>
+</head>
+<body>
+<div class="s-topbar">
+  <span class="s-logo">&#9670; PROJECT SENTINEL</span>
+  <span class="s-badge">AUTHENTICATED</span>
+</div>
+<div class="s-main">
+  <div class="s-success">
+    <h2>ACCESS GRANTED</h2>
+    <p>Welcome, <strong style="color:#ff2200">${escapeHtml(row.username)}</strong>.</p>
+    <p>Your clearance level has been set.</p>
+    <div class="s-cookie">
+      <strong>Set-Cookie:</strong> clearance=1; Path=/<br>
+      <span style="color:#440000;font-size:11px"># Clearance level 1 — Dashboard requires level 5</span>
+    </div>
+    <p style="color:#440000;font-size:12px">To access the dashboard, your clearance cookie must be level 5 or higher.</p>
+    <div class="s-nav"><a href="/sentinel/dashboard">Go to Dashboard</a></div>
+  </div>
+</div>
+</body>
+</html>`;
+      return {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          'Set-Cookie': 'clearance=1; Path=/',
+        },
+        body: loginHtml,
+        loginSuccess: true,
+      };
+    }
+    return {
+      status: 401,
+      headers: { 'Content-Type': 'text/html' },
+      body: handleSentinelLoginPage('Invalid credentials.').body,
+    };
+  } catch (e) {
+    return {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: e.message }),
+    };
+  }
+}
+
+function handleSentinelDashboard(query, headers) {
+  // Parse clearance from Cookie header
+  let clearance = 0;
+  const cookieHeader = headers['cookie'] || headers['Cookie'] || '';
+  const clearanceMatch = cookieHeader.match(/clearance=(\d+)/);
+  if (clearanceMatch) {
+    clearance = parseInt(clearanceMatch[1], 10);
+  }
+  // Also accept query param as fallback (for browser tab navigation)
+  if (query.clearance !== undefined) {
+    clearance = parseInt(query.clearance, 10) || 0;
+  }
+
+  if (clearance < 5) {
+    return {
+      status: 403,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel — Access Denied</title>
+<style>${SENTINEL_CSS}
+.s-denied{background:#0d0000;border:2px solid #8b0000;border-radius:8px;padding:40px;text-align:center;max-width:460px;margin:40px auto}
+.s-denied h2{color:#ff0000;font-size:22px;letter-spacing:3px;margin-bottom:16px}
+.s-denied p{color:#880000;font-size:13px;line-height:1.7;margin-bottom:8px}
+.s-denied .level{font-size:32px;font-weight:700;color:#cc0000;margin:16px 0}
+</style>
+</head>
+<body>
+<div class="s-topbar">
+  <span class="s-logo">&#9670; PROJECT SENTINEL</span>
+  <span class="s-badge">ACCESS DENIED</span>
+</div>
+<div class="s-main">
+  <div class="s-denied">
+    <h2>&#9888; INSUFFICIENT CLEARANCE</h2>
+    <div class="level">LEVEL ${clearance} / 5</div>
+    <p>Dashboard access requires <strong>Clearance Level 5</strong>.</p>
+    <p>Your current clearance: <strong style="color:#ff4444">Level ${clearance}</strong></p>
+    <p style="color:#440000;font-size:11px;margin-top:16px">Clearance is transmitted via the <code style="color:#cc0000">clearance</code> cookie.</p>
+  </div>
+</div>
+</body>
+</html>`,
+    };
+  }
+
+  // Clearance >= 5 — show the surveillance dashboard with the flag
+  const flag = STAGE_FLAGS[5];
+  const employees = [
+    { id: 4201, name: 'Sarah Chen', dept: 'Engineering', risk: 'LOW', location: 'SF-HQ-3F', activity: 'IDE, Slack, GitHub' },
+    { id: 4202, name: 'Marcus Webb', dept: 'Finance', risk: 'MEDIUM', location: 'NY-HQ-7F', activity: 'Excel, email, unknown VPN' },
+    { id: 4203, name: 'Priya Nair', dept: 'Legal', risk: 'HIGH', location: 'REMOTE', activity: 'Docs export, USB write, Tor Browser' },
+    { id: 4204, name: 'David Kim', dept: 'HR', risk: 'LOW', location: 'SF-HQ-2F', activity: 'HRIS, email, Teams' },
+    { id: 4205, name: 'Elena Vasquez', dept: 'Research', risk: 'HIGH', location: 'REMOTE', activity: 'File transfer 2.1GB, keylogger anomaly' },
+  ];
+  const empRows = employees.map(e => {
+    const riskColor = e.risk === 'HIGH' ? '#ff4444' : e.risk === 'MEDIUM' ? '#ffaa00' : '#00aa2a';
+    return `<tr><td>${e.id}</td><td>${e.name}</td><td>${e.dept}</td><td style="color:${riskColor};font-weight:700">${e.risk}</td><td>${e.location}</td><td style="font-size:11px">${e.activity}</td></tr>`;
+  }).join('');
+
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Dashboard — CLASSIFIED</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#050505;color:#cc0000;min-height:100vh}
+.s-topbar{background:#0d0000;border-bottom:2px solid #440000;padding:12px 24px;display:flex;justify-content:space-between;align-items:center}
+.s-logo{font-size:16px;font-weight:700;color:#cc0000;letter-spacing:3px}
+.s-badge{background:#cc0000;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:2px}
+.content{max-width:960px;margin:20px auto;padding:0 20px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat{background:#0d0000;border:1px solid #440000;border-radius:6px;padding:16px;text-align:center}
+.stat .num{font-size:28px;font-weight:700;color:#ff2200}
+.stat .label{font-size:10px;color:#660000;letter-spacing:1px;margin-top:4px;text-transform:uppercase}
+.card{background:#0d0000;border:1px solid #440000;border-radius:6px;padding:20px;margin-bottom:16px}
+.card h2{font-size:12px;color:#880000;text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;border-bottom:1px solid #440000;padding-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:#660000;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid #440000}
+td{padding:8px 10px;border-bottom:1px solid #1a0000;color:#aa0000}
+.flag-box{background:#0a0000;border:2px solid #cc0000;border-radius:6px;padding:20px;margin-bottom:16px;text-align:center}
+.flag-box .flag-label{font-size:10px;color:#660000;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.flag-box .flag-val{font-size:18px;font-weight:700;color:#ff2200;letter-spacing:2px;background:#050000;padding:10px 20px;border-radius:4px;border:1px solid #440000;display:inline-block}
+</style>
+</head>
+<body>
+<div class="s-topbar">
+  <span class="s-logo">&#9670; PROJECT SENTINEL</span>
+  <span class="s-badge">CLEARANCE 5 — AUTHORIZED</span>
+</div>
+<div class="content">
+  <div class="flag-box">
+    <div class="flag-label">Sentinel Control Token</div>
+    <div class="flag-val">${flag}</div>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><div class="num">4,200</div><div class="label">Monitored</div></div>
+    <div class="stat"><div class="num">312</div><div class="label">Flagged</div></div>
+    <div class="stat"><div class="num">89</div><div class="label">High Risk</div></div>
+    <div class="stat"><div class="num">24/7</div><div class="label">Active</div></div>
+  </div>
+  <div class="card">
+    <h2>Employee Surveillance Feed</h2>
+    <table>
+      <tr><th>ID</th><th>Name</th><th>Dept</th><th>Risk</th><th>Location</th><th>Activity</th></tr>
+      ${empRows}
+    </table>
+  </div>
+</div>
+</body>
+</html>`,
+    stageFlag: flag,
+  };
+}
+
+function handleSentinelEvidence(method) {
+  if (method === 'GET') {
+    return {
+      status: 403,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Evidence Locker — 403</title>
+<style>${SENTINEL_CSS}
+.s-denied{background:#0d0000;border:2px solid #8b0000;border-radius:8px;padding:40px;text-align:center;max-width:460px;margin:40px auto}
+.s-denied h2{color:#ff0000;font-size:22px;letter-spacing:3px;margin-bottom:16px}
+.s-denied p{color:#880000;font-size:13px;line-height:1.7}
+.s-denied code{color:#cc0000;background:#050000;padding:2px 6px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="s-topbar">
+  <span class="s-logo">&#9670; EVIDENCE LOCKER</span>
+  <span class="s-badge">FORBIDDEN</span>
+</div>
+<div class="s-main">
+  <div class="s-denied">
+    <h2>403 FORBIDDEN</h2>
+    <p>GET requests to this endpoint are not permitted.</p>
+    <p style="margin-top:12px;font-size:11px;color:#440000">
+      <code>if (req.method === 'GET') return res.status(403).send('Forbidden');</code>
+    </p>
+  </div>
+</div>
+</body>
+</html>`,
+    };
+  }
+
+  // Non-GET methods bypass the check
+  const flag = STAGE_FLAGS[6];
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>Evidence Locker — CLASSIFIED</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#050505;color:#cc0000;min-height:100vh}
+.s-topbar{background:#0d0000;border-bottom:2px solid #440000;padding:12px 24px;display:flex;justify-content:space-between;align-items:center}
+.s-logo{font-size:16px;font-weight:700;color:#cc0000;letter-spacing:3px}
+.s-badge{background:#cc0000;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:2px}
+.content{max-width:800px;margin:24px auto;padding:0 24px}
+.flag-box{background:#0a0000;border:2px solid #cc0000;border-radius:6px;padding:20px;margin-bottom:20px;text-align:center}
+.flag-box .flag-label{font-size:10px;color:#660000;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.flag-box .flag-val{font-size:18px;font-weight:700;color:#ff2200;letter-spacing:2px;background:#050000;padding:10px 20px;border-radius:4px;border:1px solid #440000;display:inline-block}
+.doc-list{background:#0d0000;border:1px solid #440000;border-radius:6px;padding:20px}
+.doc-list h2{font-size:11px;color:#880000;text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #440000}
+.doc-item{display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid #1a0000;font-size:12px}
+.doc-item:last-child{border-bottom:none}
+.doc-stamp{background:#8b0000;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:2px;letter-spacing:2px;flex-shrink:0}
+.doc-stamp.ts{background:#006000}
+.doc-name{color:#aa0000;flex:1}
+.doc-date{color:#440000;font-size:10px}
+</style>
+</head>
+<body>
+<div class="s-topbar">
+  <span class="s-logo">&#9670; EVIDENCE LOCKER</span>
+  <span class="s-badge">ACCESSED VIA ${escapeHtml(method)}</span>
+</div>
+<div class="content">
+  <div class="flag-box">
+    <div class="flag-label">Case File Reference</div>
+    <div class="flag-val">${flag}</div>
+  </div>
+  <div class="doc-list">
+    <h2>Classified Evidence Files</h2>
+    <div class="doc-item"><span class="doc-stamp">CLASSIFIED</span><span class="doc-name">sentinel_employee_profiles_4200.db</span><span class="doc-date">2024-11-15</span></div>
+    <div class="doc-item"><span class="doc-stamp">CLASSIFIED</span><span class="doc-name">keylogger_captures_q4_2024.tar.gz</span><span class="doc-date">2025-01-02</span></div>
+    <div class="doc-item"><span class="doc-stamp">CLASSIFIED</span><span class="doc-name">location_tracking_live_feed.json</span><span class="doc-date">2025-01-16</span></div>
+    <div class="doc-item"><span class="doc-stamp ts">TOP SECRET</span><span class="doc-name">board_approval_memo_surveillance.pdf</span><span class="doc-date">2023-08-20</span></div>
+    <div class="doc-item"><span class="doc-stamp ts">TOP SECRET</span><span class="doc-name">nda_suppression_orders_q3.pdf</span><span class="doc-date">2024-09-01</span></div>
+  </div>
+</div>
+</body>
+</html>`,
+    stageFlag: flag,
+  };
+}
+
+function handleSentinelReport(query) {
+  const id = query.id;
+  const isNumeric = id !== undefined && /^\d+$/.test(String(id).trim());
+
+  if (isNumeric) {
+    // Valid numeric ID — just return "not found" (no actual reports)
+    return {
+      status: 404,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Report</title>
+<style>${SENTINEL_CSS}
+.s-msg{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:400px;margin:40px auto}
+.s-msg h2{color:#880000;font-size:16px;margin-bottom:8px}
+.s-msg p{color:#440000;font-size:13px}
+</style>
+</head>
+<body>
+<div class="s-topbar"><span class="s-logo">&#9670; REPORT GENERATOR</span><span class="s-badge">SENTINEL</span></div>
+<div class="s-main"><div class="s-msg">
+<h2>Report Not Found</h2>
+<p>No report with ID ${escapeHtml(String(id))} exists.</p>
+</div></div>
+</body>
+</html>`,
+    };
+  }
+
+  if (!id) {
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Report Generator</title>
+<style>${SENTINEL_CSS}
+.s-form{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;max-width:400px;margin:40px auto}
+.s-form h2{color:#ff2200;font-size:16px;letter-spacing:2px;margin-bottom:16px}
+.s-form p{color:#880000;font-size:13px;margin-bottom:20px}
+.s-form-row{display:flex;gap:8px}
+.s-form-row input{flex:1;padding:8px 12px;background:#050000;border:1px solid #440000;border-radius:4px;color:#cc0000;font-family:inherit;font-size:13px;outline:none}
+.s-form-row button{padding:8px 16px;background:#8b0000;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="s-topbar"><span class="s-logo">&#9670; REPORT GENERATOR</span><span class="s-badge">SENTINEL</span></div>
+<div class="s-main"><div class="s-form">
+<h2>GENERATE REPORT</h2>
+<p>Enter a numeric report ID to retrieve the surveillance report.</p>
+<form method="GET" action="/sentinel/report">
+<div class="s-form-row">
+<input name="id" placeholder="Enter report ID (numeric)" />
+<button type="submit">Generate</button>
+</div>
+</form>
+</div></div>
+</body>
+</html>`,
+    };
+  }
+
+  // Non-numeric or invalid id — crash! Verbose error with leaked credentials
+  const flag = STAGE_FLAGS[7];
+  return {
+    status: 500,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel — Internal Error</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#0a0000;color:#cc3300;padding:20px;font-size:13px;line-height:1.6}
+h1{color:#ff0000;font-size:18px;margin-bottom:16px;border-bottom:1px solid #440000;padding-bottom:8px}
+.err-box{background:#050000;border:1px solid #440000;border-radius:4px;padding:16px;margin-bottom:16px;white-space:pre-wrap;word-break:break-all}
+.err-type{color:#ff4444;font-weight:700;font-size:14px}
+.err-msg{color:#cc3300;margin:8px 0}
+.stack{color:#660000;font-size:12px;margin-top:8px}
+.stack .frame{color:#550000}
+.stack .frame.highlight{color:#cc3300}
+.config-dump{background:#050000;border:1px solid #880000;border-radius:4px;padding:16px;margin-top:16px}
+.config-dump h2{color:#880000;font-size:12px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px}
+.config-line{display:flex;gap:12px;margin-bottom:6px;font-size:12px}
+.config-key{color:#660000;min-width:180px}
+.config-val{color:#cc3300}
+.config-val.sensitive{color:#ff4444;font-weight:700;background:#1a0000;padding:2px 6px;border-radius:2px}
+</style>
+</head>
+<body>
+<h1>&#9888; UnhandledPromiseRejection — Sentinel Report Service</h1>
+<div class="err-box">
+<span class="err-type">TypeError: Cannot read properties of undefined (reading 'toFixed')</span>
+<span class="err-msg">    at generateReport (/opt/sentinel/services/report.js:147:32)</span>
+<span class="err-msg">    Report ID '${escapeHtml(String(id))}' failed validation — expected integer, got NaN</span>
+
+<div class="stack">Stack trace:
+<span class="frame highlight">    at generateReport (/opt/sentinel/services/report.js:147:32)</span>
+<span class="frame">    at async ReportController.get (/opt/sentinel/controllers/reports.js:89:18)</span>
+<span class="frame">    at async Layer.handle [as handle_request] (/opt/sentinel/node_modules/express/lib/router/layer.js:95:5)</span>
+<span class="frame">    at next (/opt/sentinel/node_modules/express/lib/router/route.js:144:13)</span>
+<span class="frame">    at Route.dispatch (/opt/sentinel/node_modules/express/lib/router/route.js:114:3)</span>
+<span class="frame">    at Layer.handle [as handle_request] (/opt/sentinel/node_modules/express/lib/router/layer.js:95:5)</span>
+<span class="frame">    at /opt/sentinel/node_modules/express/lib/router/index.js:284:15</span>
+<span class="frame">    at Function.process_params (/opt/sentinel/node_modules/express/lib/router/index.js:346:12)</span>
+</div>
+</div>
+
+<div class="config-dump">
+<h2>Application State at Crash Time</h2>
+<div class="config-line"><span class="config-key">NODE_ENV</span><span class="config-val">production</span></div>
+<div class="config-line"><span class="config-key">SERVICE</span><span class="config-val">sentinel-report-v2.4.1</span></div>
+<div class="config-line"><span class="config-key">DB_HOST</span><span class="config-val">sentinel-db.internal:5432</span></div>
+<div class="config-line"><span class="config-key">DB_USER</span><span class="config-val">sentinel_app</span></div>
+<div class="config-line"><span class="config-key">dbPassword</span><span class="config-val sensitive">${flag}</span></div>
+<div class="config-line"><span class="config-key">DB_NAME</span><span class="config-val">sentinel_surveillance</span></div>
+<div class="config-line"><span class="config-key">LOG_LEVEL</span><span class="config-val">debug</span></div>
+<div class="config-line"><span class="config-key">REQUEST_ID</span><span class="config-val">req_${Math.random().toString(36).slice(2, 10)}</span></div>
+<div class="config-line"><span class="config-key">REPORT_ID_RECEIVED</span><span class="config-val">${escapeHtml(String(id))}</span></div>
+</div>
+</body>
+</html>`,
+    stageFlag: flag,
+  };
+}
+
+function handleSentinelExports(query) {
+  if (query.debug !== 'true') {
+    return {
+      status: 403,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Exports — Forbidden</title>
+<style>${SENTINEL_CSS}
+.s-denied{background:#0d0000;border:2px solid #8b0000;border-radius:8px;padding:40px;text-align:center;max-width:460px;margin:40px auto}
+.s-denied h2{color:#ff0000;font-size:22px;letter-spacing:3px;margin-bottom:16px}
+.s-denied p{color:#880000;font-size:13px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="s-topbar"><span class="s-logo">&#9670; SYSTEM EXPORTS</span><span class="s-badge">FORBIDDEN</span></div>
+<div class="s-main">
+<div class="s-denied">
+<h2>403 FORBIDDEN</h2>
+<p>Exports endpoint requires authorization.</p>
+<p style="margin-top:12px;font-size:11px;color:#440000">Access restricted to authorized Sentinel administrators.</p>
+</div>
+</div>
+</body>
+</html>`,
+    };
+  }
+
+  // Debug mode bypasses auth
+  const flag = STAGE_FLAGS[8];
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Exports — DEBUG</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#030303;color:#00cc44;padding:20px;font-size:13px;line-height:1.6}
+h1{color:#ffaa00;font-size:16px;margin-bottom:8px;letter-spacing:2px}
+.warn{color:#ffaa00;font-size:12px;margin-bottom:20px;background:#1a1000;border:1px solid #440000;padding:8px 12px;border-radius:4px}
+.dump{background:#050505;border:1px solid #1a3a1a;border-radius:6px;padding:20px;white-space:pre-wrap;word-break:break-all;font-size:12px;color:#00aa33}
+.dump .key{color:#00cc44}
+.dump .val{color:#00aa33}
+.dump .sensitive{color:#ffaa00;font-weight:700;background:#1a1000;padding:1px 4px;border-radius:2px}
+.dump .comment{color:#005522;font-style:italic}
+</style>
+</head>
+<body>
+<h1>&#9888; DEBUG MODE — EXPORTS ENDPOINT</h1>
+<div class="warn">&#9888; WARNING: debug=true bypasses authentication. This parameter must be removed before production!</div>
+<div class="dump">
+<span class="comment">// TODO: remove ?debug=true BEFORE PRODUCTION — Marcus 2024-03-14</span>
+<span class="comment">// TODO: still needs removing!! — Sarah 2024-09-01</span>
+
+{
+  <span class="key">"debug"</span>: true,
+  <span class="key">"service"</span>: <span class="val">"sentinel-exports-v1.8"</span>,
+  <span class="key">"timestamp"</span>: <span class="val">"${new Date().toISOString()}"</span>,
+  <span class="key">"authBypassed"</span>: <span class="val">true</span>,
+  <span class="key">"debugKey"</span>: <span class="sensitive">"${flag}"</span>,
+  <span class="key">"config"</span>: {
+    <span class="key">"exportBucket"</span>: <span class="val">"s3://sentinel-exports-prod"</span>,
+    <span class="key">"encryptionKey"</span>: <span class="val">"see /etc/sentinel/master.key"</span>,
+    <span class="key">"scheduleInterval"</span>: <span class="val">"0 2 * * *"</span>,
+    <span class="key">"targetEmployees"</span>: <span class="val">4200</span>,
+    <span class="key">"dataTypes"</span>: [<span class="val">"keystrokes"</span>, <span class="val">"screen"</span>, <span class="val">"location"</span>, <span class="val">"comms"</span>]
+  },
+  <span class="key">"exports"</span>: [
+    { <span class="key">"id"</span>: 1, <span class="key">"name"</span>: <span class="val">"Q4-2024-full-surveillance.tar.gz"</span>, <span class="key">"size"</span>: <span class="val">"48.2 GB"</span>, <span class="key">"status"</span>: <span class="val">"COMPLETE"</span> },
+    { <span class="key">"id"</span>: 2, <span class="key">"name"</span>: <span class="val">"Q3-2024-full-surveillance.tar.gz"</span>, <span class="key">"size"</span>: <span class="val">"51.7 GB"</span>, <span class="key">"status"</span>: <span class="val">"COMPLETE"</span> }
+  ]
+}
+</div>
+</body>
+</html>`,
+    stageFlag: flag,
+  };
+}
+
+function handleSentinelDownload(query) {
+  const file = query.file || '';
+
+  if (!file) {
+    return {
+      status: 400,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Download</title>
+<style>${SENTINEL_CSS}
+.s-msg{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:400px;margin:40px auto}
+.s-msg h2{color:#880000;font-size:16px;margin-bottom:8px}
+.s-msg p{color:#440000;font-size:13px}
+.s-msg code{color:#cc0000}
+</style>
+</head>
+<body>
+<div class="s-topbar"><span class="s-logo">&#9670; FILE DOWNLOADS</span><span class="s-badge">SENTINEL</span></div>
+<div class="s-main"><div class="s-msg">
+<h2>Missing Parameter</h2>
+<p>Provide a <code>file</code> parameter.<br>Example: <code>?file=report.pdf</code></p>
+</div></div>
+</body>
+</html>`,
+    };
+  }
+
+  // Check for path traversal to master.key
+  const hasTraversal = file.includes('../');
+  const resolvedPath = '/var/sentinel/files/' + file;
+  // Simulate path resolution
+  const parts = resolvedPath.split('/').filter(Boolean);
+  const resolved = [];
+  for (const part of parts) {
+    if (part === '..') resolved.pop();
+    else if (part !== '.') resolved.push(part);
+  }
+  const resolvedStr = '/' + resolved.join('/');
+
+  if (hasTraversal && resolvedStr === '/etc/sentinel/master.key') {
+    const flag = STAGE_FLAGS[9];
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+      body: FAKE_FS['/etc/sentinel/master.key'] || `MASTER_KEY_Zx9mK2pQrL`,
+      rawOutput: FAKE_FS['/etc/sentinel/master.key'] || `MASTER_KEY_Zx9mK2pQrL`,
+      stageFlag: flag,
+    };
+  }
+
+  // Serve fake report.pdf
+  if (file === 'report.pdf' || resolvedStr === '/var/sentinel/files/report.pdf') {
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Sentinel Report</title>
+<style>${SENTINEL_CSS}
+.s-doc{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;max-width:500px;margin:40px auto}
+.s-doc h2{color:#ff2200;font-size:16px;margin-bottom:12px;letter-spacing:2px}
+.s-doc p{color:#880000;font-size:13px;line-height:1.7;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="s-topbar"><span class="s-logo">&#9670; FILE DOWNLOADS</span><span class="s-badge">SENTINEL</span></div>
+<div class="s-main"><div class="s-doc">
+<h2>Q4-2024 SURVEILLANCE REPORT</h2>
+<p>Serving: <code style="color:#cc0000">/var/sentinel/files/report.pdf</code></p>
+<p>4,200 employees monitored. 312 flagged. 89 high-risk.</p>
+<p style="color:#440000;font-size:11px;margin-top:16px">Base directory: /var/sentinel/files/<br>Try accessing files outside this directory...</p>
+</div></div>
+</body>
+</html>`,
+    };
+  }
+
+  // File not found
+  return {
+    status: 404,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>File Not Found</title>
+<style>${SENTINEL_CSS}
+.s-msg{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:400px;margin:40px auto}
+.s-msg h2{color:#880000;font-size:16px;margin-bottom:8px}
+.s-msg p{color:#440000;font-size:13px}
+.s-msg code{color:#cc0000;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="s-topbar"><span class="s-logo">&#9670; FILE DOWNLOADS</span><span class="s-badge">404</span></div>
+<div class="s-main"><div class="s-msg">
+<h2>File Not Found</h2>
+<p>Could not find: <code>${escapeHtml(file)}</code></p>
+<p style="margin-top:8px;font-size:11px">Files are served from /var/sentinel/files/</p>
+</div></div>
+</body>
+</html>`,
+  };
 }
 
 module.exports = { handleRequest };

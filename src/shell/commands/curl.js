@@ -1,6 +1,7 @@
 /**
  * curl command — makes virtual HTTP requests to the vulnerable web app.
- * Supports: curl [url], curl -d "data" [url], curl -X POST [url], curl -v [url]
+ * Supports: curl [url], curl -d "data" [url], curl -X POST [url], curl -v [url],
+ *           curl -H "Header: value" [url]
  */
 
 const { handleRequest } = require('../../webapp/vulnerable-app');
@@ -10,6 +11,7 @@ function curl(ctx, args) {
   let data = null;
   let verbose = false;
   let url = null;
+  const headers = {};
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '-X' && args[i + 1]) {
@@ -18,6 +20,16 @@ function curl(ctx, args) {
     } else if (args[i] === '-d' && args[i + 1]) {
       data = args[i + 1];
       method = 'POST'; // -d implies POST
+      i++;
+    } else if (args[i] === '-H' && args[i + 1]) {
+      // Parse "Header-Name: value"
+      const headerStr = args[i + 1];
+      const colonIdx = headerStr.indexOf(':');
+      if (colonIdx !== -1) {
+        const hName = headerStr.slice(0, colonIdx).trim();
+        const hVal = headerStr.slice(colonIdx + 1).trim();
+        headers[hName] = hVal;
+      }
       i++;
     } else if (args[i] === '-v' || args[i] === '--verbose') {
       verbose = true;
@@ -37,13 +49,16 @@ function curl(ctx, args) {
   path = path.replace(/^https?:\/\/(localhost|127\.0\.0\.1|portal\.megacorp\.internal)(:\d+)?/, '');
   if (!path.startsWith('/')) path = '/' + path;
 
-  const result = handleRequest(method, path, data, ctx.sessionId, ctx.currentStage);
+  const result = handleRequest(method, path, data, ctx.sessionId, ctx.currentStage, headers);
 
   const output = [];
   if (verbose) {
     output.push(`> ${method} ${path} HTTP/1.1`);
     output.push(`> Host: portal.megacorp.internal`);
     if (data) output.push(`> Content-Type: application/x-www-form-urlencoded`);
+    for (const [k, v] of Object.entries(headers)) {
+      output.push(`> ${k}: ${v}`);
+    }
     output.push(`>`);
     output.push(`< HTTP/1.1 ${result.status}`);
     for (const [k, v] of Object.entries(result.headers || {})) {

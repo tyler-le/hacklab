@@ -81,6 +81,11 @@ router.post('/stage/switch', (req, res) => {
     return res.status(400).json({ error: 'Invalid stage index' });
   }
 
+  // Gate advanced stages (indices 5-9) behind payment
+  if (stageIndex >= 5 && !state.advancedUnlocked) {
+    return res.status(403).json({ error: 'Advanced Pack required', paymentRequired: true });
+  }
+
   state.currentStage = stageIndex;
   const stage = getStage(stageIndex);
 
@@ -152,6 +157,60 @@ router.post('/reset', (req, res) => {
   // Clean up old game state
   gameState.delete(sessionId);
   res.json({ sessionId: newSessionId });
+});
+
+// POST /api/checkout — create a Stripe Checkout session
+router.post('/checkout', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Payment not configured' });
+  }
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'HackLab — Operation Blacksite',
+            description: '5 advanced hacking missions: Cookie Tampering, Verb Tampering, Verbose Errors, Debug Backdoor, Path Traversal',
+          },
+          unit_amount: 99,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: `${origin}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/verify-payment — verify a Stripe payment and unlock advanced pack
+router.post('/verify-payment', async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Payment not configured' });
+  }
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const { session_id, sessionId: gameSessionId } = req.body;
+    const stripeSession = await stripe.checkout.sessions.retrieve(session_id);
+    if (stripeSession.payment_status === 'paid') {
+      if (gameSessionId) {
+        const state = getGameState(gameSessionId);
+        state.advancedUnlocked = true;
+      }
+      res.json({ unlocked: true });
+    } else {
+      res.json({ unlocked: false });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

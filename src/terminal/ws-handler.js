@@ -6,7 +6,9 @@ const RealShellSession = require('../sandbox/real-shell-session');
 const { escapeHtml } = require('../utils');
 
 function getNudge(stageIndex, result, command) {
-  const stageId = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection'][stageIndex];
+  const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
+    'cookie_tamper', 'verb_tamper', 'verbose_errors', 'debug_param', 'path_traversal'];
+  const stageId = STAGE_IDS[stageIndex];
 
   if (stageId === 'intro') {
     // Logged in but not as admin with the right creds
@@ -52,6 +54,49 @@ function getNudge(stageIndex, result, command) {
     }
   }
 
+  if (stageId === 'cookie_tamper') {
+    // Hit the dashboard but got clearance error
+    if (/\/sentinel\/dashboard/.test(command) && result.stdout && /INSUFFICIENT CLEARANCE/i.test(result.stdout)) {
+      return '✓ You reached the dashboard! Your clearance is too low. Try sending a higher clearance cookie: curl -H "Cookie: clearance=5" ...';
+    }
+    // Logged in but didn\'t go to dashboard yet
+    if (/\/sentinel\/login/.test(command) && result.loginSuccess) {
+      return '✓ Logged in! Check the Set-Cookie header in the response (use -v). Now visit /sentinel/dashboard with a modified cookie.';
+    }
+  }
+
+  if (stageId === 'verb_tamper') {
+    // Got the 403 on GET
+    if (/\/sentinel\/evidence/.test(command) && result.stdout && /403/.test(result.stdout) && !result.stageFlag) {
+      return '✓ GET is blocked! Try a different HTTP method. Hint: curl -X POST http://portal.megacorp.internal/sentinel/evidence';
+    }
+  }
+
+  if (stageId === 'verbose_errors') {
+    // Got a successful response (no crash)
+    if (/\/sentinel\/report/.test(command) && result.stdout && /Report Not Found/i.test(result.stdout)) {
+      return '✓ That worked, but no error was triggered. Try a non-numeric id value to cause a crash.';
+    }
+  }
+
+  if (stageId === 'debug_param') {
+    // Got a 403
+    if (/\/sentinel\/exports/.test(command) && result.stdout && /403/.test(result.stdout) && !result.stageFlag) {
+      return '✓ Forbidden! Read the source code: cat /var/www/sentinel/routes.js — look for a hidden query parameter.';
+    }
+  }
+
+  if (stageId === 'path_traversal') {
+    // Got a file not found
+    if (/\/sentinel\/download/.test(command) && result.stdout && /File Not Found/i.test(result.stdout)) {
+      return '✓ File not found. Try using ../ to escape the base directory. Target: ../../../etc/sentinel/master.key';
+    }
+    // Got the report.pdf
+    if (/\/sentinel\/download/.test(command) && result.stdout && /sentinel\/files\/report\.pdf/i.test(result.stdout)) {
+      return '✓ You can download files! Now try traversing up with ../ sequences to reach /etc/sentinel/master.key';
+    }
+  }
+
   return null;
 }
 
@@ -85,6 +130,12 @@ function handleWebSocket(ws) {
         break;
       case 'browser-navigate':
         handleBrowserNavigate(msg);
+        break;
+      case 'setUnlocked':
+        if (sessionId) {
+          const state = getGameState(sessionId);
+          state.advancedUnlocked = true;
+        }
         break;
     }
   });
@@ -169,7 +220,17 @@ function handleWebSocket(ws) {
       } else if (stageIndex >= getStageCount() - 1) {
         send({ terminalLines: ['<span class="info">No more stages. Type <span class="cmd">restart</span> to play again.</span>'], prompt: shell.getPrompt() });
       } else {
-        state.currentStage++;
+        const nextStageIndex = stageIndex + 1;
+        // Gate advanced stages (indices 5-9) behind payment
+        if (nextStageIndex >= 5 && !state.advancedUnlocked) {
+          send({
+            showPaywall: true,
+            terminalLines: ['<span class="warn">Operation Blacksite requires the Advanced Pack. Unlock it to continue.</span>'],
+            prompt: shell.getPrompt(),
+          });
+          return;
+        }
+        state.currentStage = nextStageIndex;
         shell.setStage(state.currentStage);
         const newStage = getStage(state.currentStage);
         send({

@@ -105,6 +105,29 @@
 <div id="tabTerminal" style="display:none"></div>
 <div id="tabUrlbar" style="display:none"></div>
 
+<div class="paywall-overlay" id="paywallOverlay">
+  <div class="paywall-modal">
+    <div class="paywall-badge">&#8856; OPERATION BLACKSITE</div>
+    <h2 class="paywall-title">5 Advanced Missions Await</h2>
+    <p class="paywall-story">You cracked MegaCorp's portal. But the conspiracy runs deeper. A secret surveillance program. 4,200 employees monitored without their knowledge. The evidence is buried inside.</p>
+    <div class="paywall-levels">
+      <div class="paywall-level"><span class="paywall-num">06</span><span class="paywall-name">Clearance Level</span></div>
+      <div class="paywall-level"><span class="paywall-num">07</span><span class="paywall-name">Wrong Door</span></div>
+      <div class="paywall-level"><span class="paywall-num">08</span><span class="paywall-name">Breaking Point</span></div>
+      <div class="paywall-level"><span class="paywall-num">09</span><span class="paywall-name">Back Door</span></div>
+      <div class="paywall-level"><span class="paywall-num">10</span><span class="paywall-name">The Smoking Gun</span></div>
+    </div>
+    <div class="paywall-price-row">
+      <span class="paywall-price">$0.99</span>
+      <span class="paywall-price-label">one-time unlock &middot; instant access</span>
+    </div>
+    <div class="paywall-btn-row">
+      <button class="paywall-btn secondary" onclick="dismissPaywall()">&larr; Not Now</button>
+      <button class="paywall-btn" id="paywallUnlockBtn" onclick="startUnlock()">Unlock Operation Blacksite</button>
+    </div>
+  </div>
+</div>
+
 <div class="success-overlay" id="successOverlay">
   <div class="success-modal">
     <div class="success-badge">STAGE COMPLETE</div>
@@ -123,14 +146,14 @@
 
 <div class="completion-overlay" id="completionOverlay">
   <div class="completion-modal">
-    <div class="completion-badge">HACKLAB COMPLETE</div>
-    <h2 class="completion-title">Mission Accomplished</h2>
-    <p class="completion-subtitle">You've identified all 5 vulnerabilities in the MegaCorp portal.</p>
-    <div class="completion-grid">
+    <div class="completion-badge" id="completionBadge">HACKLAB COMPLETE</div>
+    <h2 class="completion-title" id="completionTitle">Mission Accomplished</h2>
+    <p class="completion-subtitle" id="completionSubtitle">You've identified all 5 vulnerabilities in the MegaCorp portal.</p>
+    <div class="completion-grid" id="completionGrid">
       <div class="completion-card">
         <div class="completion-card-num">01</div>
         <div class="completion-card-title">Information Leakage</div>
-        <div class="completion-card-owasp">OWASP A01 — Broken Access Control</div>
+        <div class="completion-card-owasp">OWASP A05 — Security Misconfiguration</div>
       </div>
       <div class="completion-card">
         <div class="completion-card-num">02</div>
@@ -153,11 +176,11 @@
         <div class="completion-card-owasp">OWASP A03 — Injection</div>
       </div>
     </div>
-    <div class="completion-footer">
+    <div class="completion-footer" id="completionFooter">
       <p>These are real vulnerabilities found in production systems every day. Now you know how to spot them — and how to defend against them.</p>
       <div class="completion-btn-row">
-        <a class="success-btn coffee-modal-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">☕ Buy me a coffee</a>
-        <button class="success-btn secondary" onclick="dismissCompletion()">← Back to Terminal</button>
+        <a class="success-btn coffee-modal-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">&#9749; Buy me a coffee</a>
+        <button class="success-btn secondary" onclick="dismissCompletion()">&larr; Back to Terminal</button>
         <button class="success-btn" onclick="restartFromCompletion()">Play Again</button>
       </div>
     </div>

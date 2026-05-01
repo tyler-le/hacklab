@@ -2,9 +2,13 @@
 
 let currentStage = 0;
 let completedStages = new Set();
-let stageCount = 5;
+let stageCount = 10;
 let stageCompleted = false;
 let hintIndex = 0;
+
+// Advanced pack unlock state
+let advancedUnlocked = localStorage.getItem('hacklab_advanced') === 'true';
+const FREE_STAGE_COUNT = 5;
 
 // Per-stage UI state
 const stageTerminalHistory = {};
@@ -13,7 +17,8 @@ const stageBrowserHistory = {};
 const stageActiveTab = {};
 
 // Stage ID list for tab management
-const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection'];
+const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
+  'cookie_tamper', 'verb_tamper', 'verbose_errors', 'debug_param', 'path_traversal'];
 
 // Monitor title per stage (null = hide the panel)
 const MONITOR_TITLES = {
@@ -22,6 +27,11 @@ const MONITOR_TITLES = {
   2: null,
   3: 'SQL Query Monitor',
   4: 'Shell Command Monitor',
+  5: null,
+  6: null,
+  7: null,
+  8: null,
+  9: null,
 };
 
 function updateMonitorTitle(stageIndex) {
@@ -190,15 +200,35 @@ function renderStageDots() {
     'Stage 3: Cross-Site Scripting (XSS)',
     'Stage 4: SQL Injection',
     'Stage 5: Command Injection',
+    'Stage 6: Cookie Tampering',
+    'Stage 7: HTTP Verb Tampering',
+    'Stage 8: Verbose Error Messages',
+    'Stage 9: Hidden Debug Parameter',
+    'Stage 10: Path Traversal',
   ];
-  el.innerHTML = titles.map((title, i) =>
-    `<div class="stage-dot ${completedStages.has(i) ? 'completed' : ''} ${i === currentStage ? 'active' : ''}" onclick="jumpToStage(${i})">` +
-    `<span class="stage-tooltip">${title}</span></div>`
-  ).join('');
+  el.innerHTML = titles.map((title, i) => {
+    const isAdvanced = i >= FREE_STAGE_COUNT;
+    const isLocked = isAdvanced && !advancedUnlocked;
+    const isDone = completedStages.has(i);
+    const isActive = i === currentStage;
+    const classes = ['stage-dot'];
+    if (isLocked) classes.push('locked');
+    if (isDone) classes.push('completed');
+    if (isActive) classes.push('active');
+    const tooltip = isLocked ? title + ' [LOCKED]' : title;
+    return `<div class="${classes.join(' ')}" onclick="${isLocked ? 'showPaywall()' : `jumpToStage(${i})`}">` +
+      `<span class="stage-tooltip">${tooltip}</span></div>`;
+  }).join('');
 }
 
 function jumpToStage(idx) {
   if (idx === currentStage) return;
+
+  // Check paywall for advanced stages
+  if (idx >= FREE_STAGE_COUNT && !advancedUnlocked) {
+    showPaywall();
+    return;
+  }
 
   saveStageState(currentStage);
 
@@ -207,7 +237,15 @@ function jumpToStage(idx) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, stageIndex: idx }),
   })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        return r.json().then(d => {
+          if (d.paymentRequired) showPaywall();
+          throw new Error(d.error || 'Switch failed');
+        });
+      }
+      return r.json();
+    })
     .then(data => {
       currentStage = data.currentStage;
       completedStages = new Set(data.completedStages);
@@ -223,7 +261,8 @@ function jumpToStage(idx) {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'setStage', stageIndex: data.currentStage }));
       }
-    });
+    })
+    .catch(() => {}); // silently handle — paywall shown above
 }
 
 // ========== HINTS ==========
@@ -280,7 +319,15 @@ function showSuccess(success) {
   btnBack.textContent = '← Review Stage';
   btnBack.onclick = () => dismissSuccess();
 
-  if (currentStage < stageCount - 1) {
+  // After completing last free stage (stage 5, index 4), show paywall if not unlocked
+  if (currentStage === FREE_STAGE_COUNT - 1 && !advancedUnlocked) {
+    btnNext.textContent = 'Continue to Blacksite →';
+    btnNext.onclick = () => {
+      dismissSuccess();
+      showPaywall();
+    };
+    btnNext.style.display = '';
+  } else if (currentStage < stageCount - 1) {
     btnNext.textContent = 'Next Stage →';
     btnNext.onclick = () => {
       dismissSuccess();
@@ -304,7 +351,123 @@ function dismissSuccess() {
   document.getElementById('terminalInput').focus();
 }
 
+// ========== PAYWALL ==========
+function showPaywall() {
+  document.getElementById('paywallOverlay').classList.add('visible');
+}
+
+function dismissPaywall() {
+  document.getElementById('paywallOverlay').classList.remove('visible');
+  document.getElementById('terminalInput').focus();
+}
+
+async function startUnlock() {
+  const btn = document.getElementById('paywallUnlockBtn');
+  if (btn) { btn.textContent = 'Redirecting...'; btn.disabled = true; }
+  try {
+    const r = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    });
+    const d = await r.json();
+    if (d.url) {
+      window.location.href = d.url;
+    } else {
+      if (btn) { btn.textContent = 'Unlock Operation Blacksite'; btn.disabled = false; }
+      alert(d.error || 'Payment not available. Please try again.');
+    }
+  } catch (err) {
+    if (btn) { btn.textContent = 'Unlock Operation Blacksite'; btn.disabled = false; }
+    alert('Payment service unavailable. Please try again.');
+  }
+}
+
+// Handle Stripe return URL
+(async function handleStripeReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('payment') === 'success') {
+    const sid = params.get('session_id');
+    if (sid) {
+      try {
+        const r = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sid, sessionId }),
+        });
+        const d = await r.json();
+        if (d.unlocked) {
+          localStorage.setItem('hacklab_advanced', 'true');
+          advancedUnlocked = true;
+          // Notify server via WS (will be done when WS connects in terminal.js onGameInit)
+        }
+      } catch (e) { /* silently fail */ }
+    }
+    window.history.replaceState({}, '', '/');
+    renderStageDots();
+  }
+})();
+
 function showCompletion() {
+  const allDone = advancedUnlocked
+    ? completedStages.size >= 10
+    : completedStages.size >= FREE_STAGE_COUNT;
+
+  const badge = document.getElementById('completionBadge');
+  const title = document.getElementById('completionTitle');
+  const subtitle = document.getElementById('completionSubtitle');
+  const grid = document.getElementById('completionGrid');
+  const footer = document.getElementById('completionFooter');
+
+  const FREE_CARDS = [
+    { num: '01', title: 'Information Leakage', owasp: 'OWASP A05 — Security Misconfiguration' },
+    { num: '02', title: 'Broken Access Control (IDOR)', owasp: 'OWASP A01 — Broken Access Control' },
+    { num: '03', title: 'Cross-Site Scripting (XSS)', owasp: 'OWASP A03 — Injection' },
+    { num: '04', title: 'SQL Injection', owasp: 'OWASP A03 — Injection' },
+    { num: '05', title: 'Command Injection', owasp: 'OWASP A03 — Injection' },
+  ];
+  const BLACKSITE_CARDS = [
+    { num: '06', title: 'Cookie Tampering', owasp: 'OWASP A02 — Cryptographic Failures' },
+    { num: '07', title: 'HTTP Verb Tampering', owasp: 'OWASP A01 — Broken Access Control' },
+    { num: '08', title: 'Verbose Error Messages', owasp: 'OWASP A05 — Security Misconfiguration' },
+    { num: '09', title: 'Hidden Debug Parameter', owasp: 'OWASP A05 — Security Misconfiguration' },
+    { num: '10', title: 'Path Traversal', owasp: 'OWASP A01 — Broken Access Control' },
+  ];
+
+  const cards = advancedUnlocked ? [...FREE_CARDS, ...BLACKSITE_CARDS] : FREE_CARDS;
+
+  if (badge) badge.textContent = advancedUnlocked ? 'OPERATION BLACKSITE COMPLETE' : 'HACKLAB COMPLETE';
+  if (title) title.textContent = advancedUnlocked ? 'MegaCorp Exposed.' : 'Mission Accomplished';
+  if (subtitle) subtitle.textContent = advancedUnlocked
+    ? "You've uncovered and dismantled MegaCorp's illegal surveillance program, Project Sentinel."
+    : "You've identified all 5 vulnerabilities in the MegaCorp portal.";
+
+  if (grid) {
+    grid.innerHTML = cards.map(c =>
+      `<div class="completion-card">` +
+      `<div class="completion-card-num">${c.num}</div>` +
+      `<div class="completion-card-title">${c.title}</div>` +
+      `<div class="completion-card-owasp">${c.owasp}</div>` +
+      `</div>`
+    ).join('');
+  }
+
+  if (footer) {
+    const footerMsg = advancedUnlocked
+      ? "You've identified 10 real-world web vulnerabilities. These attacks happen to production systems every day. Now you know how to spot them — and how to defend against them."
+      : "These are real vulnerabilities found in production systems every day. Now you know how to spot them — and how to defend against them.";
+    const blacksiteBtn = !advancedUnlocked
+      ? `<button class="success-btn" onclick="dismissCompletion(); showPaywall();">Continue to Blacksite &rarr;</button>`
+      : '';
+    footer.innerHTML = `<p>${footerMsg}</p>
+      <div class="completion-btn-row">
+        <a class="success-btn coffee-modal-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">&#9749; Buy me a coffee</a>
+        <button class="success-btn secondary" onclick="dismissCompletion()">&larr; Back to Terminal</button>
+        ${blacksiteBtn}
+        <button class="success-btn" onclick="restartFromCompletion()">Play Again</button>
+      </div>`;
+  }
+
   document.getElementById('completionOverlay').classList.add('visible');
 }
 

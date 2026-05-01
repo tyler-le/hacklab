@@ -63,6 +63,11 @@ function onGameInit(msg) {
   document.getElementById('missionText').innerHTML = msg.stage.mission;
   const fi = document.getElementById('flagInput'); if (fi && msg.stage.flagPrompt) fi.placeholder = msg.stage.flagPrompt;
 
+  // Sync advanced unlock state to server
+  if (typeof advancedUnlocked !== 'undefined' && advancedUnlocked && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'setUnlocked' }));
+  }
+
   printTerminal('<span class="sys">HackLab v2.0 initialized.</span>');
   printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');
   printTerminal('<span class="sys">Shell access as: www-data</span>');
@@ -158,6 +163,11 @@ function onCommandResult(msg) {
     printTerminal('<span class="info">✓ Exploit successful! Find the secret in the browser and submit it above.</span>');
     const scroll = document.getElementById('terminalScroll');
     scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  // Show paywall if needed
+  if (msg.showPaywall && typeof showPaywall === 'function') {
+    showPaywall();
   }
 
   // Handle stage completion

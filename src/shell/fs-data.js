@@ -143,6 +143,165 @@ const ROUTE_SNIPPETS = {
   ].join('\n'),
 };
 
+// --- Sentinel route snippets (Operation Blacksite) ---
+const SENTINEL_ROUTE_SNIPPETS = {
+  // Stage 6: Cookie Tampering
+  5: [
+    '// ============================================================',
+    '// GET /sentinel/dashboard',
+    '// Requires clearance >= 5 (read from cookie)',
+    '// ============================================================',
+    'router.get("/sentinel/dashboard", (req, res) => {',
+    '  const clearance = parseInt(req.cookies.clearance || "0");',
+    '  if (clearance < 5) {',
+    '    return res.status(403).send("Insufficient clearance level.");',
+    '  }',
+    '  // Show surveillance dashboard with SENTINEL_CTRL_8x2kPq token',
+    '  res.send(buildDashboard());',
+    '});',
+    '',
+    '// POST /sentinel/login',
+    '// Sets clearance=1 cookie on success',
+    'router.post("/sentinel/login", (req, res) => {',
+    '  const { user, pass } = req.body;',
+    '  const row = db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(user, pass);',
+    '  if (row) {',
+    '    // Clearance starts at 1 — can this be tampered?',
+    '    res.cookie("clearance", "1", { path: "/" });',
+    '    res.redirect("/sentinel/dashboard");',
+    '  } else {',
+    '    res.status(401).send("Invalid credentials");',
+    '  }',
+    '});',
+  ].join('\n'),
+
+  // Stage 7: HTTP Verb Tampering
+  6: [
+    '// ============================================================',
+    '// /sentinel/evidence',
+    '// VULNERABLE: only blocks GET — other methods bypass the check!',
+    '// ============================================================',
+    'router.all("/sentinel/evidence", (req, res) => {',
+    '  if (req.method === "GET") {',
+    '    return res.status(403).send("Forbidden — GET requests are not permitted.");',
+    '  }',
+    '  // BUG: Only GET is blocked — POST, PUT, DELETE all get through!',
+    '  res.send(buildEvidenceLocker());',
+    '});',
+  ].join('\n'),
+
+  // Stage 8: Verbose Errors
+  7: [
+    '// ============================================================',
+    '// GET /sentinel/report?id=NUMBER',
+    '// VULNERABLE: unhandled error exposes config/credentials',
+    '// ============================================================',
+    'router.get("/sentinel/report", async (req, res) => {',
+    '  const id = parseInt(req.query.id); // NaN if non-numeric!',
+    '  try {',
+    '    // Crashes if id is NaN — parseInt("x") === NaN',
+    '    const report = await db.prepare("SELECT * FROM reports WHERE id = ?").get(id);',
+    '    if (!report) return res.status(404).send("Report not found");',
+    '    res.json(report);',
+    '  } catch (err) {',
+    '    // VULNERABLE: full error + config leaked to client in debug mode!',
+    '    res.status(500).json({',
+    '      error: err.message,',
+    '      stack: err.stack,',
+    '      config: app.get("config"), // exposes dbPassword!',
+    '    });',
+    '  }',
+    '});',
+  ].join('\n'),
+
+  // Stage 9: Hidden Debug Param
+  8: [
+    '// ============================================================',
+    '// GET /sentinel/exports',
+    '// VULNERABLE: ?debug=true bypasses auth — never removed!',
+    '// TODO: remove ?debug=true BEFORE PRODUCTION — Marcus 2024-03-14',
+    '// ============================================================',
+    'router.get("/sentinel/exports", (req, res) => {',
+    '  // TODO: remove this before going live!!!',
+    '  if (req.query.debug === "true") {',
+    '    return res.json({',
+    '      debug: true,',
+    '      debugKey: process.env.DEBUG_KEY,',
+    '      config: app.locals.config,',
+    '    });',
+    '  }',
+    '',
+    '  if (!req.session.adminAuth) {',
+    '    return res.status(403).send("Forbidden");',
+    '  }',
+    '  res.json(getExportList());',
+    '});',
+  ].join('\n'),
+
+  // Stage 10: Path Traversal
+  9: [
+    '// ============================================================',
+    '// GET /sentinel/download?file=FILENAME',
+    '// VULNERABLE: path.join without sanitization allows traversal',
+    '// ============================================================',
+    'const BASE_DIR = "/var/sentinel/files/";',
+    '',
+    'router.get("/sentinel/download", (req, res) => {',
+    '  const file = req.query.file;',
+    '  if (!file) return res.status(400).send("Missing file parameter");',
+    '',
+    '  // VULNERABLE: path.join allows ../ traversal out of BASE_DIR!',
+    '  const filePath = path.join(BASE_DIR, file);',
+    '',
+    '  // Missing check: filePath.startsWith(BASE_DIR)',
+    '  fs.readFile(filePath, "utf8", (err, data) => {',
+    '    if (err) return res.status(404).send("File not found");',
+    '    res.send(data);',
+    '  });',
+    '});',
+  ].join('\n'),
+};
+
+const SENTINEL_NOTES = {
+  5: [
+    'TODO List (Sentinel admin):',
+    '- Cookie-based clearance is NOT secure — needs server-side session',
+    '- jsmith logged in with clearance=1, but cookie can be tampered',
+    '- Dashboard requires clearance=5',
+    '',
+    'Credentials: jsmith / password123',
+    'Endpoint: /sentinel/login → /sentinel/dashboard',
+  ].join('\n'),
+  6: [
+    'TODO List (Sentinel admin):',
+    '- Evidence locker only blocks GET — POST/PUT/DELETE bypass the check!',
+    '- Need to implement proper auth middleware, not method filtering',
+    '- Fix: use auth middleware before the route, not inside it',
+  ].join('\n'),
+  7: [
+    'TODO List (Sentinel admin):',
+    '- Report generator crashes on non-numeric IDs',
+    '- Error handler is leaking app config to the client — CRITICAL',
+    '- Must wrap parseInt and validate before hitting the DB',
+    '- Disable debug mode in production!',
+  ].join('\n'),
+  8: [
+    'TODO List (Sentinel admin):',
+    '- REMOVE ?debug=true from exports endpoint before next deploy',
+    '- This was left in for testing and completely bypasses auth',
+    '- Marcus added it, Sarah flagged it, nobody removed it',
+  ].join('\n'),
+  9: [
+    'TODO List (Sentinel admin):',
+    '- Path traversal in /sentinel/download — URGENT',
+    '- path.join(BASE_DIR, file) does not prevent ../ escaping the base',
+    '- Fix: use path.resolve() and check startsWith(BASE_DIR)',
+    '- /etc/sentinel/master.key must NOT be accessible from the web',
+    '',
+    'Note: master.key is at /etc/sentinel/master.key',
+  ].join('\n'),
+};
+
 // Per-stage admin notes — only hint at the current vulnerability
 const NOTES = {
   0: [
@@ -183,6 +342,91 @@ const NOTES = {
 
 function buildFilesystem(stageIndex) {
   const stage = stageIndex || 0;
+  const isSentinelStage = stage >= 5;
+
+  // Build sentinel filesystem entries if in Blacksite stages
+  const sentinelEtc = isSentinelStage ? {
+    sentinel: {
+      'master.key': [
+        'MASTER_KEY_Zx9mK2pQrL',
+        '# Project Sentinel — Master Encryption Key',
+        '# Generated: 2024-03-01 | Rotated: NEVER',
+        '# WARNING: This key encrypts all surveillance data for 4,200 employees',
+        '# KEEP OFFLINE — DO NOT COMMIT TO SOURCE CONTROL',
+        'algorithm: AES-256-GCM',
+        'key_id: sentinel-master-v1',
+        'issued_to: MegaCorp Security Division',
+        'expires: 2099-12-31',
+      ].join('\n'),
+      'config.json': JSON.stringify({
+        service: 'sentinel-network',
+        version: '4.2.1',
+        baseDir: '/var/sentinel/files/',
+        dbHost: 'sentinel-db.internal:5432',
+        dbUser: 'sentinel_app',
+        keyFile: '/etc/sentinel/master.key',
+      }, null, 2),
+    },
+  } : {};
+
+  const sentinelVar = isSentinelStage ? {
+    sentinel: {
+      files: {
+        'report.pdf': '[Binary PDF — Quarterly Surveillance Report Q4 2024]',
+        'README.txt': 'Files are served via /sentinel/download?file=FILENAME\nBase directory: /var/sentinel/files/',
+      },
+    },
+    www: {
+      sentinel: {
+        'routes.js': ROUTES_HEADER + (SENTINEL_ROUTE_SNIPPETS[stage] || '') + ROUTES_FOOTER,
+        'notes.txt': SENTINEL_NOTES[stage] || SENTINEL_NOTES[5],
+        'server.js': [
+          'const express = require("express");',
+          'const path = require("path");',
+          'const fs = require("fs");',
+          'const cookieParser = require("cookie-parser");',
+          'const db = require("./db");',
+          'const routes = require("./routes");',
+          '',
+          'const app = express();',
+          'app.use(express.json());',
+          'app.use(express.urlencoded({ extended: true }));',
+          'app.use(cookieParser());',
+          '',
+          '// Sentinel monitoring service — CLASSIFIED',
+          'app.use("/sentinel", routes);',
+          '',
+          'app.locals.config = {',
+          '  dbPassword: process.env.SENTINEL_DB_PASS,',
+          '  keyFile: "/etc/sentinel/master.key",',
+          '};',
+          '',
+          'app.listen(3001, () => {',
+          '  console.log("Sentinel network running on port 3001");',
+          '});',
+        ].join('\n'),
+      },
+    },
+  } : {};
+
+  const sentinelBashHistory = isSentinelStage ? [
+    'cd /var/www/sentinel',
+    'cat routes.js',
+    'cat /etc/sentinel/master.key',
+    'curl -d "user=jsmith&pass=password123" http://portal.megacorp.internal/sentinel/login',
+    'curl -H "Cookie: clearance=5" http://portal.megacorp.internal/sentinel/dashboard',
+    'curl -X POST http://portal.megacorp.internal/sentinel/evidence',
+    'curl "http://portal.megacorp.internal/sentinel/report?id=x"',
+    'curl "http://portal.megacorp.internal/sentinel/exports?debug=true"',
+    'curl "http://portal.megacorp.internal/sentinel/download?file=../../../etc/sentinel/master.key"',
+  ].join('\n') : [
+    'cd /var/www/megacorp',
+    'cat routes.js',
+    'sqlite3 /var/lib/megacorp/megacorp.db "SELECT * FROM users"',
+    'cat /etc/secrets/api_keys.txt',
+    'curl http://portal.megacorp.internal/api/diagnostic?host=localhost',
+    'pm2 restart megacorp',
+  ].join('\n');
 
   return {
     etc: {
@@ -208,6 +452,7 @@ function buildFilesystem(stageIndex) {
           'SLACK_WEBHOOK=https://hooks.slack.com/services/T0DEADBEEF/B0DEADBEEF/xyzzy',
         ].join('\n'),
       },
+      ...sentinelEtc,
     },
     var: {
       www: {
@@ -269,7 +514,9 @@ function buildFilesystem(stageIndex) {
             'SESSION_SECRET=megacorp_secret_key_do_not_share',
           ].join('\n'),
         },
+        ...(isSentinelStage ? sentinelVar.www : {}),
       },
+      ...(isSentinelStage ? { sentinel: sentinelVar.sentinel } : {}),
       log: {
         nginx: {
           'access.log': [
@@ -302,15 +549,8 @@ function buildFilesystem(stageIndex) {
     },
     home: {
       admin: {
-        '.bash_history': [
-          'cd /var/www/megacorp',
-          'cat routes.js',
-          'sqlite3 /var/lib/megacorp/megacorp.db "SELECT * FROM users"',
-          'cat /etc/secrets/api_keys.txt',
-          'curl http://portal.megacorp.internal/api/diagnostic?host=localhost',
-          'pm2 restart megacorp',
-        ].join('\n'),
-        'notes.txt': NOTES[stage] || NOTES[0],
+        '.bash_history': sentinelBashHistory,
+        'notes.txt': isSentinelStage ? (SENTINEL_NOTES[stage] || SENTINEL_NOTES[5]) : (NOTES[stage] || NOTES[0]),
         '.ssh': {
           'authorized_keys': 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... admin@megacorp',
         },
