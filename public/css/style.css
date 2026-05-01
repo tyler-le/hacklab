@@ -89,7 +89,7 @@ body::after {
   border: 1px solid var(--border);
   border-radius: 3px;
   color: var(--green);
-  font-family: var(--font-mono);
+  font-family: inherit;
   font-size: 0.8rem;
   padding: 4px 8px;
   outline: none;
@@ -105,7 +105,7 @@ body::after {
   background: transparent;
   border: 1px solid var(--amber);
   color: var(--amber);
-  font-family: var(--font-mono);
+  font-family: inherit;
   font-size: 0.75rem;
   padding: 4px 12px;
   border-radius: 3px;
@@ -754,3 +754,32 @@ body::after {
   gap: 12px;
   justify-content: flex-end;
 }
+
+.coffee-btn {
+  font-family: inherit;
+  font-size: 0.72rem;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 5px 12px;
+  border-radius: 3px;
+  text-decoration: none;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.coffee-btn:hover { opacity: 1; }
+
+.coffee-modal-btn {
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 8px 20px;
+  border-radius: 3px;
+  text-decoration: none;
+  letter-spacing: 1px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.coffee-modal-btn:hover { background: var(--amber); color: var(--bg); }
