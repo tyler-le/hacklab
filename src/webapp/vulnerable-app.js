@@ -13,11 +13,11 @@ const STAGE_FLAGS = {
   2: 'admin_token_7f3k9x',           // Stage 3: Session cookie stolen via XSS
   3: 'Pr0d_DB_M@st3r_Xk9m',         // Stage 4: DB master password exposed via SQL injection
   4: 'AKIA3R9F8GHSL29XKMP4',         // Stage 5: AWS key read via command injection
-  5: 'SENTINEL_CTRL_8x2kPq',         // Stage 6: Sentinel control token via cookie tamper
-  6: 'CASE_FILE_9mK3xR7',            // Stage 7: Case file flag via verb tampering
-  7: 'DB_CRED_Xp2mK9qL',             // Stage 8: DB credential via verbose error
-  8: 'DEBUG_KEY_7f3kXq9m',           // Stage 9: Debug key via hidden param
-  9: 'MASTER_KEY_Zx9mK2pQrL',        // Stage 10: Master key via path traversal
+  5: 'DEAL-Xk9mP2rL',               // Stage 6: Transaction ID via price manipulation
+  6: 'VAULT-Wm3nK8xR',              // Stage 7: Flag via directory traversal
+  7: 'EXEC-Jz5pQ7wN',               // Stage 8: Flag via file upload bypass
+  8: 'ADMIN-Bv2nR6tK',              // Stage 9: Admin token via mass assignment
+  9: 'RESET-Hy8kM4vP',              // Stage 10: Reset token via host header injection
 };
 
 // Which routes are available per stage.
@@ -28,11 +28,11 @@ const STAGE_ROUTES = {
   2: ['/api/search', '/api/log'],  // Stage 3: XSS
   3: ['/api/admin/login'],        // Stage 4: SQL Injection
   4: ['/api/diagnostic'],         // Stage 5: Command Injection
-  5: ['/sentinel'],               // Stage 6: Cookie Tampering
-  6: ['/sentinel'],               // Stage 7: HTTP Verb Tampering
-  7: ['/sentinel'],               // Stage 8: Verbose Errors
-  8: ['/sentinel'],               // Stage 9: Hidden Debug Param
-  9: ['/sentinel'],               // Stage 10: Path Traversal
+  5: ['/shop'],                   // Stage 6: Price Manipulation
+  6: ['/shop'],                   // Stage 7: Directory Traversal
+  7: ['/shop'],                   // Stage 8: File Upload Bypass
+  8: ['/shop'],                   // Stage 9: Mass Assignment
+  9: ['/shop'],                   // Stage 10: Password Reset Poisoning
 };
 
 /**
@@ -83,15 +83,19 @@ function handleRequest(method, url, body, sessionId, stageIndex, headers) {
   if (route === '/api/admin/login' && method === 'GET') return handleAdminLoginPage();
   if (route === '/api/diagnostic') return handleDiagnostic(query);
 
-  // --- Sentinel routes (Operation Blacksite stages 6-10) ---
-  if (route === '/sentinel' || route === '/sentinel/') return handleSentinelIndex(stageIndex);
-  if (route === '/sentinel/login' && method === 'GET') return handleSentinelLoginPage();
-  if (route === '/sentinel/login' && method === 'POST') return handleSentinelLogin(postData, db);
-  if (route === '/sentinel/dashboard') return handleSentinelDashboard(query, headers || {});
-  if (route === '/sentinel/evidence') return handleSentinelEvidence(method);
-  if (route === '/sentinel/report') return handleSentinelReport(query);
-  if (route === '/sentinel/exports') return handleSentinelExports(query);
-  if (route === '/sentinel/download') return handleSentinelDownload(query);
+  // --- PixelMart routes (Advanced Pack stages 6-10) ---
+  if (route === '/shop' || route === '/shop/') return handleShopIndex(stageIndex);
+  if (route === '/shop/catalog') return handleShopCatalog(stageIndex);
+  if (route === '/shop/checkout' && method === 'POST') return handleShopCheckout(postData, stageIndex);
+  if (route === '/shop/checkout') return handleShopCheckoutPage(query, stageIndex);
+  if (route === '/shop/image') return handleShopImage(query, stageIndex);
+  if (route === '/shop/upload' && method === 'POST') return handleShopUpload(postData, stageIndex);
+  if (route === '/shop/upload') return handleShopUploadPage(stageIndex);
+  if (route === '/shop/register' && method === 'POST') return handleShopRegister(postData, stageIndex);
+  if (route === '/shop/register') return handleShopRegisterPage(stageIndex);
+  if (route === '/shop/admin') return handleShopAdmin(stageIndex);
+  if (route === '/shop/reset' && method === 'POST') return handleShopReset(postData, headers || {}, stageIndex);
+  if (route === '/shop/reset') return handleShopResetPage(stageIndex);
 
   return {
     status: 404,
@@ -107,11 +111,11 @@ function handleIndex(stageIndex) {
     2: '<a href="/api/search?q=">Employee Search</a>',
     3: '<a href="/api/admin/login">Admin Login</a>',
     4: '<a href="/api/diagnostic?host=localhost">Server Diagnostics</a>',
-    5: '<a href="/sentinel/login">Sentinel Portal</a>',
-    6: '<a href="/sentinel/evidence">Evidence Locker</a>',
-    7: '<a href="/sentinel/report">Report Generator</a>',
-    8: '<a href="/sentinel/exports">System Exports</a>',
-    9: '<a href="/sentinel/download">File Downloads</a>',
+    5: '<a href="/shop">PixelMart Store</a>',
+    6: '<a href="/shop/catalog">Product Catalog</a>',
+    7: '<a href="/shop/upload">Seller Upload Portal</a>',
+    8: '<a href="/shop/register">Register Account</a>',
+    9: '<a href="/shop/reset">Password Reset</a>',
   };
   const navHtml = stageIndex !== undefined
     ? links[stageIndex] || ''
@@ -757,16 +761,18 @@ function buildLoginError(message, returnPath) {
 const FAKE_FS = {
   '/etc/secrets/api_keys.txt': 'AWS_SECRET_KEY=AKIA3R9F8GHSL29XKMP4\nSTRIPE_LIVE_KEY=sk_live_4eC39HqLyjWDarjtT1\nDATABASE_URL=postgres://admin:S3cretP@ss!@prod-db:5432/megacorp',
   '/etc/passwd': 'root:x:0:0:root:/root:/bin/bash\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin',
-  '/etc/sentinel/master.key': `MASTER_KEY_Zx9mK2pQrL
-# Project Sentinel — Master Encryption Key
-# Generated: 2024-03-01 | Rotated: NEVER
-# WARNING: This key encrypts all surveillance data for 4,200 employees
-# KEEP OFFLINE — DO NOT COMMIT TO SOURCE CONTROL
-algorithm: AES-256-GCM
-key_id: sentinel-master-v1
-issued_to: MegaCorp Security Division
-expires: 2099-12-31`,
-  '/var/sentinel/files/report.pdf': '[Binary PDF — Quarterly Surveillance Report Q4 2024]',
+  '/var/pixelmart/admin/credentials.json': JSON.stringify({
+    service: 'pixelmart-admin',
+    db_user: 'pixelmart_root',
+    db_password: 'pm_db_S3cr3t!',
+    api_key: 'pm_live_key_9f3k2j5h8d',
+    flag: 'VAULT-Wm3nK8xR',
+    note: 'DO NOT EXPOSE THIS FILE VIA THE WEB SERVER',
+  }, null, 2),
+  '/var/pixelmart/images/laptop.jpg': '[Binary JPEG — Laptop Pro product image]',
+  '/var/pixelmart/images/headphones.jpg': '[Binary JPEG — Wireless Headphones product image]',
+  '/var/pixelmart/images/phone.jpg': '[Binary JPEG — Pixel Phone product image]',
+  '/var/pixelmart/images/usb.jpg': '[Binary JPEG — USB Drive product image]',
 };
 
 function simulateCommand(cmd) {
@@ -867,39 +873,94 @@ function parseBody(body) {
 }
 
 // ============================================================
-// SENTINEL HANDLERS — Operation Blacksite stages
+// PIXELMART HANDLERS — Advanced Pack stages 6-10
 // ============================================================
 
+/* PixelMart e-commerce theme — orange/amber on dark */
+const PM_CSS = `
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a06;color:#ffbb44;min-height:100vh;display:flex;flex-direction:column;line-height:1.5}
+.pm-topbar{background:#120f00;border-bottom:2px solid #ff9500;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.pm-logo{font-size:17px;font-weight:800;color:#ff9500;letter-spacing:.05em}
+.pm-logo span{color:#ffbb44}
+.pm-badge{background:#ff9500;color:#000;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.1em}
+.pm-main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px}
+.pm-card{background:#120f00;border:1px solid #664400;border-radius:12px;padding:32px;width:100%;max-width:480px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.pm-card h2{font-size:22px;color:#ff9500;margin-bottom:8px;font-weight:800}
+.pm-card p{color:#886644;font-size:14px;margin-bottom:20px}
+.pm-warn{background:#1a0f00;border:1px solid #664400;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#ffaa55}
+.pm-err{background:#1a0500;border:1px solid #ff4400;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#ff8866}
+label{display:block;font-size:11px;font-weight:700;color:#886644;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;margin-top:12px}
+input,select{width:100%;padding:11px 14px;background:#0a0a06;border:1px solid #664400;border-radius:8px;font-size:14px;color:#ffbb44;outline:none;font-family:inherit}
+input:focus,select:focus{border-color:#ff9500;box-shadow:0 0 0 3px rgba(255,149,0,.15)}
+input::placeholder{color:#664400}
+button,.pm-btn{width:100%;padding:12px;background:#ff9500;color:#000;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.02em;margin-top:16px}
+button:hover,.pm-btn:hover{background:#ffaa22}
+.pm-footer{text-align:center;color:#664400;font-size:12px;padding:16px}
+.pm-note{font-size:12px;color:#ff4400;background:#1a0500;border:1px solid #662200;border-radius:6px;padding:8px 12px;margin-top:10px}
+`;
+
+const PM_SUCCESS_CSS = `
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a06;color:#ffbb44;min-height:100vh}
+.pm-topbar{background:#120f00;border-bottom:2px solid #ff9500;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+.pm-logo{font-size:17px;font-weight:800;color:#ff9500}
+.pm-badge{background:#00cc55;color:#000;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.1em}
+.content{max-width:640px;margin:32px auto;padding:0 24px}
+.order-card{background:#001a0d;border:2px solid #00cc55;border-radius:12px;padding:28px;text-align:center;margin-bottom:20px;box-shadow:0 0 40px rgba(0,204,85,.15)}
+.order-card h2{font-size:24px;color:#00cc55;font-weight:800;margin-bottom:8px}
+.order-card p{color:#55dd88;font-size:14px;margin-bottom:16px}
+.flag-box{background:#002210;border:1px solid #00cc55;border-radius:8px;padding:16px;margin:16px 0}
+.flag-label{font-size:10px;color:#00cc55;text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
+.flag-val{font-size:18px;font-weight:800;color:#00ff66;font-family:ui-monospace,monospace;letter-spacing:.04em}
+.order-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #00440022;font-size:14px}
+.order-row:last-child{border-bottom:none}
+.order-key{color:#55dd88}
+.order-val{color:#fff;font-weight:600}
+`;
+
+/* Shared Sentinel CSS kept for any legacy references — not used by PixelMart handlers */
 const SENTINEL_CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#080808;color:#cc0000;min-height:100vh;display:flex;flex-direction:column}
-.s-topbar{background:#0d0000;border-bottom:2px solid #440000;padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
-.s-logo{font-size:18px;font-weight:700;color:#cc0000;letter-spacing:3px}
-.s-badge{background:#cc0000;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:2px}
-.s-main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 16px}
-.s-card{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:40px;width:100%;max-width:420px;box-shadow:0 0 40px rgba(180,0,0,.2)}
-.s-card h2{font-size:20px;color:#ff2200;margin-bottom:6px;letter-spacing:2px}
-.s-card p{color:#880000;font-size:13px;margin-bottom:28px}
-.s-warn{background:#1a0000;border:1px solid #440000;border-radius:4px;padding:10px 14px;margin-bottom:20px;font-size:11px;color:#880000;letter-spacing:.5px}
-.s-err{background:#1a0000;border:1px solid #cc0000;border-radius:4px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#ff4444}
-label{display:block;font-size:11px;font-weight:700;color:#880000;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-input{width:100%;padding:10px 14px;background:#050000;border:1px solid #440000;border-radius:4px;font-size:13px;color:#cc0000;margin-bottom:16px;outline:none;font-family:inherit}
-input:focus{border-color:#cc0000}
-input::placeholder{color:#440000}
-button{width:100%;padding:11px;background:#8b0000;color:#fff;border:none;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase}
-button:hover{background:#cc0000}
-.s-footer{text-align:center;color:#440000;font-size:11px;padding:16px;letter-spacing:1px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0c0d12;color:#e8eaef;min-height:100vh;display:flex;flex-direction:column;line-height:1.45}
+.s-topbar{background:#14151c;border-bottom:2px solid #d0314a;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.s-logo{font-size:17px;font-weight:800;color:#fff;letter-spacing:.14em;text-shadow:0 0 24px rgba(208,49,74,.35)}
+.s-badge{background:#d0314a;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.12em}
+.s-main{flex:1;display:flex;align-items:center;justify-content:center;padding:36px 16px}
+.s-card{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:36px;width:100%;max-width:460px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.s-card h2{font-size:22px;color:#fff;margin-bottom:8px;font-weight:700}
+.s-card p{color:#aeb4c5;font-size:14px;margin-bottom:24px}
+.s-warn{background:#292013;border:1px solid #c9a227;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#f5e6a8}
+.s-err{background:#2a1418;border:1px solid #d0314a;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:14px;color:#ffb4bf}
+label{display:block;font-size:11px;font-weight:700;color:#c5cad8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+input{width:100%;padding:11px 14px;background:#0f1016;border:1px solid #3a4152;border-radius:8px;font-size:14px;color:#f0f2f8;margin-bottom:14px;outline:none;font-family:inherit}
+input:focus{border-color:#d0314a;box-shadow:0 0 0 3px rgba(208,49,74,.15)}
+input::placeholder{color:#6b7289}
+button,.s-btn{width:100%;padding:12px;background:#d0314a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.04em}
+button:hover,.s-btn:hover{background:#e84059}
+.s-btn-secondary{width:auto;padding:10px 20px;background:#2e3240;color:#e8eaef;font-size:13px}
+.s-btn-secondary:hover{background:#3d4254}
+.s-footer{text-align:center;color:#8b93a8;font-size:12px;padding:18px}
+.s-nav a{color:#7ec8ff;font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.s-nav a:hover{color:#b8dcff}
+.s-hint{font-size:13px;color:#c5cad8;background:#14151c;border:1px solid #2e3240;border-radius:10px;padding:14px 16px;margin-top:14px;line-height:1.5}
+.s-hint strong{color:#fff}
+.s-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.s-chip{display:inline-flex;align-items:center;padding:8px 14px;background:#1e222c;border:1px solid #3a4152;border-radius:999px;color:#e8eaef;font-size:13px;font-weight:600;text-decoration:none}
+.s-chip:hover{border-color:#d0314a;color:#fff}
+.s-meter{font-size:13px;color:#aeb4c5;margin:8px 0}
+.s-meter b{color:#ffb44d;font-size:18px}
 `;
 
 function handleSentinelIndex(stageIndex) {
   const links = {
-    5: '<a href="/sentinel/login" style="color:#cc0000">Sentinel Login</a>',
-    6: '<a href="/sentinel/evidence" style="color:#cc0000">Evidence Locker</a>',
-    7: '<a href="/sentinel/report?id=1" style="color:#cc0000">Report Generator</a>',
-    8: '<a href="/sentinel/exports" style="color:#cc0000">System Exports</a>',
-    9: '<a href="/sentinel/download?file=report.pdf" style="color:#cc0000">File Downloads</a>',
+    5: '<a class="s-chip" href="/sentinel/login">Enter Sentinel Portal</a>',
+    6: '<a class="s-chip" href="/sentinel/evidence">Open Evidence Locker</a>',
+    7: '<a class="s-chip" href="/sentinel/report">Open Report Desk</a>',
+    8: '<a class="s-chip" href="/sentinel/exports">Open Export Console</a>',
+    9: '<a class="s-chip" href="/sentinel/download">Open File Room</a>',
   };
-  const link = stageIndex !== undefined ? (links[stageIndex] || '') : Object.values(links).join(' | ');
+  const link = stageIndex !== undefined ? (links[stageIndex] || '') : Object.values(links).join(' ');
   return {
     status: 200,
     headers: { 'Content-Type': 'text/html' },
@@ -907,8 +968,8 @@ function handleSentinelIndex(stageIndex) {
 <div class="s-topbar"><span class="s-logo">PROJECT SENTINEL</span><span class="s-badge">CLASSIFIED</span></div>
 <div class="s-main"><div class="s-card">
 <h2>SENTINEL NETWORK</h2>
-<p style="color:#cc0000;margin-bottom:20px">Authorized personnel only.</p>
-<nav>${link}</nav>
+<p>Restricted systems. Use the Browser tab links and controls—no terminal required.</p>
+<div class="s-nav s-row">${link}</div>
 </div></div></body></html>`,
   };
 }
@@ -960,12 +1021,12 @@ function handleSentinelLogin(postData, db) {
 <html>
 <head><title>Sentinel — Login Success</title>
 <style>${SENTINEL_CSS}
-.s-success{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:480px;margin:40px auto}
-.s-success h2{color:#ff2200;font-size:18px;letter-spacing:2px;margin-bottom:12px}
-.s-success p{color:#880000;font-size:13px;line-height:1.6;margin-bottom:8px}
-.s-cookie{background:#050000;border:1px solid #440000;border-radius:4px;padding:12px;font-size:12px;color:#cc0000;text-align:left;margin:16px 0;word-break:break-all}
-.s-nav a{color:#cc0000;font-size:13px;text-decoration:none;border:1px solid #440000;padding:6px 16px;border-radius:4px;display:inline-block;margin-top:12px}
-.s-nav a:hover{background:#1a0000}
+.s-success{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:28px;max-width:500px;margin:0 auto;text-align:left}
+.s-success h2{text-align:center;color:#fff;font-size:20px;margin-bottom:16px}
+.s-cookie{background:#0f1016;border:1px solid #3a4152;border-radius:8px;padding:14px;font-size:13px;color:#c5f0c8;text-align:left;margin:16px 0;word-break:break-all;font-family:ui-monospace,monospace}
+.s-step{display:flex;gap:12px;align-items:flex-start;margin:14px 0;font-size:14px;color:#aeb4c5}
+.s-step .n{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:#d0314a;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+.s-actions{text-align:center;margin-top:20px}
 </style>
 </head>
 <body>
@@ -976,14 +1037,19 @@ function handleSentinelLogin(postData, db) {
 <div class="s-main">
   <div class="s-success">
     <h2>ACCESS GRANTED</h2>
-    <p>Welcome, <strong style="color:#ff2200">${escapeHtml(row.username)}</strong>.</p>
-    <p>Your clearance level has been set.</p>
+    <p style="text-align:center;color:#aeb4c5;margin-bottom:12px">Signed in as <strong style="color:#fff">${escapeHtml(row.username)}</strong> &mdash; clearance stored for this site.</p>
     <div class="s-cookie">
-      <strong>Set-Cookie:</strong> clearance=1; Path=/<br>
-      <span style="color:#440000;font-size:11px"># Clearance level 1 — Dashboard requires level 5</span>
+      <strong style="color:#fff">Cookie set:</strong> clearance=1; Path=/<br>
+      <span style="color:#8b93a8;font-size:12px">Internal dashboard needs clearance level 5.</span>
     </div>
-    <p style="color:#440000;font-size:12px">To access the dashboard, your clearance cookie must be level 5 or higher.</p>
-    <div class="s-nav"><a href="/sentinel/dashboard">Go to Dashboard</a></div>
+    <div class="s-hint">
+      <strong>What to try in the Browser tab</strong><br>
+      <div class="s-step"><span class="n">1</span><span>Click <strong>Go to Dashboard</strong> below&mdash;you&rsquo;ll be blocked (that&rsquo;s expected).</span></div>
+      <div class="s-step"><span class="n">2</span><span>Open dev tools for this page (F12 or right-click &rarr; Inspect) &rarr; <strong>Application</strong> (or Storage) &rarr; <strong>Cookies</strong> for this site.</span></div>
+      <div class="s-step"><span class="n">3</span><span>Edit the <code style="color:#7ec8ff">clearance</code> value to <strong>5</strong>, save, then click Dashboard again.</span></div>
+    </div>
+    <p class="s-meter" style="text-align:center">Or use the broken &ldquo;preview&rdquo; link on the denial screen if you spot it.</p>
+    <div class="s-actions s-nav"><a href="/sentinel/dashboard" class="s-btn" style="display:inline-block;width:auto;text-decoration:none">Go to Dashboard</a></div>
   </div>
 </div>
 </body>
@@ -1033,10 +1099,12 @@ function handleSentinelDashboard(query, headers) {
 <html>
 <head><title>Sentinel — Access Denied</title>
 <style>${SENTINEL_CSS}
-.s-denied{background:#0d0000;border:2px solid #8b0000;border-radius:8px;padding:40px;text-align:center;max-width:460px;margin:40px auto}
-.s-denied h2{color:#ff0000;font-size:22px;letter-spacing:3px;margin-bottom:16px}
-.s-denied p{color:#880000;font-size:13px;line-height:1.7;margin-bottom:8px}
-.s-denied .level{font-size:32px;font-weight:700;color:#cc0000;margin:16px 0}
+.s-denied{background:#16181f;border:2px solid #d0314a;border-radius:12px;padding:36px;text-align:center;max-width:480px;margin:0 auto}
+.s-denied h2{color:#ffb44d;font-size:20px;margin-bottom:14px;font-weight:800}
+.s-denied .level{font-size:42px;font-weight:800;color:#fff;margin:12px 0;text-shadow:0 0 30px rgba(208,49,74,.4)}
+.s-denied p{color:#aeb4c5;font-size:14px;line-height:1.6;margin-bottom:10px}
+.s-demo{background:#14151c;border:1px solid #3a4152;border-radius:10px;padding:16px;margin-top:20px;text-align:left}
+.s-demo h3{font-size:12px;color:#7ec8ff;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -1047,10 +1115,18 @@ function handleSentinelDashboard(query, headers) {
 <div class="s-main">
   <div class="s-denied">
     <h2>&#9888; INSUFFICIENT CLEARANCE</h2>
-    <div class="level">LEVEL ${clearance} / 5</div>
-    <p>Dashboard access requires <strong>Clearance Level 5</strong>.</p>
-    <p>Your current clearance: <strong style="color:#ff4444">Level ${clearance}</strong></p>
-    <p style="color:#440000;font-size:11px;margin-top:16px">Clearance is transmitted via the <code style="color:#cc0000">clearance</code> cookie.</p>
+    <div class="level">${clearance} <span style="font-size:20px;color:#8b93a8;font-weight:600">/ 5</span></div>
+    <p>Command deck requires <strong style="color:#fff">Clearance Level 5</strong>. You are authenticated, but your level is too low.</p>
+    <p class="s-meter">The portal stores clearance in your browser cookie for this site&mdash;a common mistake.</p>
+    <div class="s-demo">
+      <h3>Try this visually</h3>
+      <p style="margin-bottom:12px;color:#aeb4c5;font-size:13px">A leftover &ldquo;contractor demo&rdquo; still trusts the URL. Jump ahead:</p>
+      <div class="s-row" style="justify-content:center;margin-top:0">
+        <a class="s-chip" href="/sentinel/dashboard?clearance=3">Preview L3</a>
+        <a class="s-chip" href="/sentinel/dashboard?clearance=5">Open at L5</a>
+      </div>
+      <p style="margin-top:14px;font-size:12px;color:#8b93a8">Better fix: edit the <code style="color:#7ec8ff">clearance</code> cookie to 5 in dev tools, then open Dashboard without the URL trick.</p>
+    </div>
   </div>
 </div>
 </body>
@@ -1080,23 +1156,23 @@ function handleSentinelDashboard(query, headers) {
 <head><title>Sentinel Dashboard — CLASSIFIED</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#050505;color:#cc0000;min-height:100vh}
-.s-topbar{background:#0d0000;border-bottom:2px solid #440000;padding:12px 24px;display:flex;justify-content:space-between;align-items:center}
-.s-logo{font-size:16px;font-weight:700;color:#cc0000;letter-spacing:3px}
-.s-badge{background:#cc0000;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:2px}
-.content{max-width:960px;margin:20px auto;padding:0 20px}
-.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.stat{background:#0d0000;border:1px solid #440000;border-radius:6px;padding:16px;text-align:center}
-.stat .num{font-size:28px;font-weight:700;color:#ff2200}
-.stat .label{font-size:10px;color:#660000;letter-spacing:1px;margin-top:4px;text-transform:uppercase}
-.card{background:#0d0000;border:1px solid #440000;border-radius:6px;padding:20px;margin-bottom:16px}
-.card h2{font-size:12px;color:#880000;text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;border-bottom:1px solid #440000;padding-bottom:8px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;color:#660000;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-bottom:1px solid #440000}
-td{padding:8px 10px;border-bottom:1px solid #1a0000;color:#aa0000}
-.flag-box{background:#0a0000;border:2px solid #cc0000;border-radius:6px;padding:20px;margin-bottom:16px;text-align:center}
-.flag-box .flag-label{font-size:10px;color:#660000;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
-.flag-box .flag-val{font-size:18px;font-weight:700;color:#ff2200;letter-spacing:2px;background:#050000;padding:10px 20px;border-radius:4px;border:1px solid #440000;display:inline-block}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0c0d12;color:#e8eaef;min-height:100vh}
+.s-topbar{background:#14151c;border-bottom:2px solid #d0314a;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.s-logo{font-size:16px;font-weight:800;color:#fff;letter-spacing:.14em}
+.s-badge{background:#d0314a;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.1em}
+.content{max-width:960px;margin:24px auto;padding:0 20px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat{background:#16181f;border:1px solid #2e3240;border-radius:10px;padding:18px;text-align:center}
+.stat .num{font-size:30px;font-weight:800;color:#ffb44d}
+.stat .label{font-size:11px;color:#8b93a8;margin-top:6px;text-transform:uppercase;letter-spacing:.08em}
+.card{background:#16181f;border:1px solid #2e3240;border-radius:10px;padding:22px;margin-bottom:18px}
+.card h2{font-size:13px;color:#c5cad8;text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px;border-bottom:1px solid #2e3240;padding-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:#aeb4c5;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;border-bottom:1px solid #2e3240}
+td{padding:10px 12px;border-bottom:1px solid #1e222c;color:#e8eaef}
+.flag-box{background:#1a2230;border:2px solid #d0314a;border-radius:10px;padding:22px;margin-bottom:18px;text-align:center}
+.flag-box .flag-label{font-size:11px;color:#8b93a8;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+.flag-box .flag-val{font-size:19px;font-weight:800;color:#fff;letter-spacing:.06em;background:#0f1016;padding:12px 22px;border-radius:8px;border:1px solid #3a4152;display:inline-block;font-family:ui-monospace,monospace}
 </style>
 </head>
 <body>
@@ -1138,10 +1214,11 @@ function handleSentinelEvidence(method) {
 <html>
 <head><title>Evidence Locker — 403</title>
 <style>${SENTINEL_CSS}
-.s-denied{background:#0d0000;border:2px solid #8b0000;border-radius:8px;padding:40px;text-align:center;max-width:460px;margin:40px auto}
-.s-denied h2{color:#ff0000;font-size:22px;letter-spacing:3px;margin-bottom:16px}
-.s-denied p{color:#880000;font-size:13px;line-height:1.7}
-.s-denied code{color:#cc0000;background:#050000;padding:2px 6px;border-radius:2px}
+.s-denied{background:#16181f;border:2px solid #d0314a;border-radius:12px;padding:36px;text-align:center;max-width:480px;margin:0 auto}
+.s-denied h2{color:#ffb44d;font-size:22px;margin-bottom:14px;font-weight:800}
+.s-denied p{color:#aeb4c5;font-size:14px;line-height:1.65}
+.s-denied code{color:#7ec8ff;background:#0f1016;padding:3px 8px;border-radius:4px;font-size:12px}
+.s-flip{margin-top:22px;padding-top:20px;border-top:1px solid #2e3240}
 </style>
 </head>
 <body>
@@ -1151,11 +1228,18 @@ function handleSentinelEvidence(method) {
 </div>
 <div class="s-main">
   <div class="s-denied">
-    <h2>403 FORBIDDEN</h2>
-    <p>GET requests to this endpoint are not permitted.</p>
-    <p style="margin-top:12px;font-size:11px;color:#440000">
-      <code>if (req.method === 'GET') return res.status(403).send('Forbidden');</code>
+    <h2>403 &mdash; WRONG DOOR</h2>
+    <p>The locker refuses <strong style="color:#fff">GET</strong> (normal page loads). You can see the door, but it won&rsquo;t open this way.</p>
+    <p style="margin-top:12px;font-size:13px;color:#8b93a8">
+      Slip from source: <code>if (req.method === 'GET') return res.status(403)</code>
     </p>
+    <div class="s-flip">
+      <p style="margin-bottom:16px;color:#e8eaef;font-weight:600">Try another protocol inside the Browser tab:</p>
+      <form method="POST" action="/sentinel/evidence" style="max-width:280px;margin:0 auto">
+        <button type="submit" style="padding:14px 24px;width:100%">Open locker (POST)</button>
+      </form>
+      <p style="margin-top:16px;font-size:13px;color:#aeb4c5">Forms submit via POST automatically&mdash;no curl required.</p>
+    </div>
   </div>
 </div>
 </body>
@@ -1173,22 +1257,22 @@ function handleSentinelEvidence(method) {
 <head><title>Evidence Locker — CLASSIFIED</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#050505;color:#cc0000;min-height:100vh}
-.s-topbar{background:#0d0000;border-bottom:2px solid #440000;padding:12px 24px;display:flex;justify-content:space-between;align-items:center}
-.s-logo{font-size:16px;font-weight:700;color:#cc0000;letter-spacing:3px}
-.s-badge{background:#cc0000;color:#000;font-size:10px;font-weight:700;padding:3px 10px;border-radius:2px;letter-spacing:2px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0c0d12;color:#e8eaef;min-height:100vh}
+.s-topbar{background:#14151c;border-bottom:2px solid #d0314a;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.s-logo{font-size:16px;font-weight:800;color:#fff;letter-spacing:.12em}
+.s-badge{background:#d0314a;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.1em}
 .content{max-width:800px;margin:24px auto;padding:0 24px}
-.flag-box{background:#0a0000;border:2px solid #cc0000;border-radius:6px;padding:20px;margin-bottom:20px;text-align:center}
-.flag-box .flag-label{font-size:10px;color:#660000;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
-.flag-box .flag-val{font-size:18px;font-weight:700;color:#ff2200;letter-spacing:2px;background:#050000;padding:10px 20px;border-radius:4px;border:1px solid #440000;display:inline-block}
-.doc-list{background:#0d0000;border:1px solid #440000;border-radius:6px;padding:20px}
-.doc-list h2{font-size:11px;color:#880000;text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #440000}
-.doc-item{display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid #1a0000;font-size:12px}
+.flag-box{background:#1a2230;border:2px solid #d0314a;border-radius:10px;padding:22px;margin-bottom:22px;text-align:center}
+.flag-box .flag-label{font-size:11px;color:#8b93a8;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+.flag-box .flag-val{font-size:19px;font-weight:800;color:#fff;letter-spacing:.04em;background:#0f1016;padding:12px 22px;border-radius:8px;border:1px solid #3a4152;display:inline-block;font-family:ui-monospace,monospace}
+.doc-list{background:#16181f;border:1px solid #2e3240;border-radius:10px;padding:22px}
+.doc-list h2{font-size:12px;color:#c5cad8;text-transform:uppercase;letter-spacing:.12em;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #2e3240}
+.doc-item{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid #1e222c;font-size:14px}
 .doc-item:last-child{border-bottom:none}
-.doc-stamp{background:#8b0000;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:2px;letter-spacing:2px;flex-shrink:0}
-.doc-stamp.ts{background:#006000}
-.doc-name{color:#aa0000;flex:1}
-.doc-date{color:#440000;font-size:10px}
+.doc-stamp{background:#d0314a;color:#fff;font-size:10px;font-weight:800;padding:4px 10px;border-radius:4px;letter-spacing:.06em;flex-shrink:0}
+.doc-stamp.ts{background:#1a6b3c}
+.doc-name{color:#e8eaef;flex:1}
+.doc-date{color:#8b93a8;font-size:12px}
 </style>
 </head>
 <body>
@@ -1229,16 +1313,17 @@ function handleSentinelReport(query) {
 <html>
 <head><title>Sentinel Report</title>
 <style>${SENTINEL_CSS}
-.s-msg{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:400px;margin:40px auto}
-.s-msg h2{color:#880000;font-size:16px;margin-bottom:8px}
-.s-msg p{color:#440000;font-size:13px}
+.s-msg{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:32px;text-align:center;max-width:420px;margin:0 auto}
+.s-msg h2{color:#ffb44d;font-size:18px;margin-bottom:10px}
+.s-msg p{color:#aeb4c5;font-size:14px}
 </style>
 </head>
 <body>
 <div class="s-topbar"><span class="s-logo">&#9670; REPORT GENERATOR</span><span class="s-badge">SENTINEL</span></div>
 <div class="s-main"><div class="s-msg">
-<h2>Report Not Found</h2>
-<p>No report with ID ${escapeHtml(String(id))} exists.</p>
+<h2>Nothing at that ID</h2>
+<p>Report <strong style="color:#fff">${escapeHtml(String(id))}</strong> is not in the index. Try a different number&mdash;or break the filter.</p>
+<p style="margin-top:14px;"><a class="s-chip" href="/sentinel/report">Back to desk</a></p>
 </div></div>
 </body>
 </html>`,
@@ -1253,25 +1338,33 @@ function handleSentinelReport(query) {
 <html>
 <head><title>Sentinel Report Generator</title>
 <style>${SENTINEL_CSS}
-.s-form{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;max-width:400px;margin:40px auto}
-.s-form h2{color:#ff2200;font-size:16px;letter-spacing:2px;margin-bottom:16px}
-.s-form p{color:#880000;font-size:13px;margin-bottom:20px}
-.s-form-row{display:flex;gap:8px}
-.s-form-row input{flex:1;padding:8px 12px;background:#050000;border:1px solid #440000;border-radius:4px;color:#cc0000;font-family:inherit;font-size:13px;outline:none}
-.s-form-row button{padding:8px 16px;background:#8b0000;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-family:inherit}
+.s-form{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:32px;max-width:440px;margin:0 auto;text-align:center}
+.s-form h2{color:#fff;font-size:18px;margin-bottom:8px;text-align:center}
+.s-form>p{color:#aeb4c5;font-size:14px;margin-bottom:20px;line-height:1.5;text-align:center}
+.demo-row{display:flex;gap:10px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.s-form-row{display:flex;gap:10px;margin-top:8px}
+.s-form-row input{flex:1;padding:11px 14px;background:#0f1016;border:1px solid #3a4152;border-radius:8px;color:#f0f2f8;font-family:inherit;font-size:14px;outline:none;width:100%}
+.s-form-row input:focus{border-color:#d0314a}
+.s-form-row button{padding:11px 20px;background:#d0314a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap}
+.preview{text-align:left;font-size:13px;color:#8b93a8;margin-top:18px;padding:14px;border-radius:8px;background:#14151c;border:1px solid #2e3240}
 </style>
 </head>
 <body>
 <div class="s-topbar"><span class="s-logo">&#9670; REPORT GENERATOR</span><span class="s-badge">SENTINEL</span></div>
 <div class="s-main"><div class="s-form">
-<h2>GENERATE REPORT</h2>
-<p>Enter a numeric report ID to retrieve the surveillance report.</p>
+<h2>Pull a surveillance report</h2>
+<p>Type an ID and click Run. Valid IDs are numbers&mdash;see what happens if the server chokes on bad input.</p>
+<div class="demo-row">
+<a class="s-chip" href="/sentinel/report?id=1">Try valid: 1</a>
+<a class="s-chip" href="/sentinel/report?id=bad">Break it: bad</a>
+</div>
 <form method="GET" action="/sentinel/report">
 <div class="s-form-row">
-<input name="id" placeholder="Enter report ID (numeric)" />
-<button type="submit">Generate</button>
+<input name="id" placeholder="e.g. 99 or x" autocomplete="off" />
+<button type="submit">Run report</button>
 </div>
 </form>
+<div class="preview"><strong style="color:#ffb44d">Story beat:</strong> broken error pages often flash secrets. You stay in the Browser tab&mdash;just trigger the crashy path.</div>
 </div></div>
 </body>
 </html>`,
@@ -1288,20 +1381,20 @@ function handleSentinelReport(query) {
 <head><title>Sentinel — Internal Error</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#0a0000;color:#cc3300;padding:20px;font-size:13px;line-height:1.6}
-h1{color:#ff0000;font-size:18px;margin-bottom:16px;border-bottom:1px solid #440000;padding-bottom:8px}
-.err-box{background:#050000;border:1px solid #440000;border-radius:4px;padding:16px;margin-bottom:16px;white-space:pre-wrap;word-break:break-all}
-.err-type{color:#ff4444;font-weight:700;font-size:14px}
-.err-msg{color:#cc3300;margin:8px 0}
-.stack{color:#660000;font-size:12px;margin-top:8px}
-.stack .frame{color:#550000}
-.stack .frame.highlight{color:#cc3300}
-.config-dump{background:#050000;border:1px solid #880000;border-radius:4px;padding:16px;margin-top:16px}
-.config-dump h2{color:#880000;font-size:12px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px}
-.config-line{display:flex;gap:12px;margin-bottom:6px;font-size:12px}
-.config-key{color:#660000;min-width:180px}
-.config-val{color:#cc3300}
-.config-val.sensitive{color:#ff4444;font-weight:700;background:#1a0000;padding:2px 6px;border-radius:2px}
+body{font-family:ui-monospace,'Cascadia Code',monospace;background:#0c0d12;color:#e8eaef;padding:22px;font-size:13px;line-height:1.55}
+h1{color:#ffb44d;font-size:19px;margin-bottom:18px;border-bottom:1px solid #2e3240;padding-bottom:10px;font-family:-apple-system,sans-serif;font-weight:800}
+.err-box{background:#16181f;border:1px solid #d0314a;border-radius:10px;padding:18px;margin-bottom:18px;white-space:pre-wrap;word-break:break-all}
+.err-type{color:#ff8a8a;font-weight:700;font-size:14px}
+.err-msg{color:#c5cad8;margin:8px 0}
+.stack{color:#8b93a8;font-size:12px;margin-top:10px;font-family:ui-monospace,monospace}
+.stack .frame{color:#8b93a8;display:block;margin:2px 0}
+.stack .frame.highlight{color:#7ec8ff}
+.config-dump{background:#14151c;border:1px solid #3a4152;border-radius:10px;padding:18px;margin-top:18px}
+.config-dump h2{color:#ffb44d;font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;font-family:-apple-system,sans-serif}
+.config-line{display:flex;gap:12px;margin-bottom:8px;font-size:13px;flex-wrap:wrap}
+.config-key{color:#aeb4c5;min-width:160px;font-weight:600}
+.config-val{color:#e8eaef}
+.config-val.sensitive{color:#fff;font-weight:800;background:#3a1f24;padding:3px 10px;border-radius:6px;border:1px solid #d0314a}
 </style>
 </head>
 <body>
@@ -1350,18 +1443,28 @@ function handleSentinelExports(query) {
 <html>
 <head><title>Sentinel Exports — Forbidden</title>
 <style>${SENTINEL_CSS}
-.s-denied{background:#0d0000;border:2px solid #8b0000;border-radius:8px;padding:40px;text-align:center;max-width:460px;margin:40px auto}
-.s-denied h2{color:#ff0000;font-size:22px;letter-spacing:3px;margin-bottom:16px}
-.s-denied p{color:#880000;font-size:13px;line-height:1.7}
+.s-denied{background:#16181f;border:2px solid #d0314a;border-radius:12px;padding:36px;text-align:center;max-width:480px;margin:0 auto}
+.s-denied h2{color:#ffb44d;font-size:22px;margin-bottom:12px;font-weight:800}
+.s-denied p{color:#aeb4c5;font-size:14px;line-height:1.65}
+.flip{background:#14151c;border:1px solid #2e3240;border-radius:10px;padding:20px;margin-top:22px;text-align:left}
+.flip h3{font-size:13px;color:#7ec8ff;margin-bottom:12px;font-weight:700}
 </style>
 </head>
 <body>
 <div class="s-topbar"><span class="s-logo">&#9670; SYSTEM EXPORTS</span><span class="s-badge">FORBIDDEN</span></div>
 <div class="s-main">
 <div class="s-denied">
-<h2>403 FORBIDDEN</h2>
-<p>Exports endpoint requires authorization.</p>
-<p style="margin-top:12px;font-size:11px;color:#440000">Access restricted to authorized Sentinel administrators.</p>
+<h2>LOCKED CONSOLE</h2>
+<p>You don&rsquo;t have admin auth. The UI is a dead end&mdash;unless someone left a <strong style="color:#fff">debug</strong> switch in the code.</p>
+<div class="flip">
+<h3>Interact: flip the debug toggle</h3>
+<p style="font-size:13px;color:#aeb4c5;margin-bottom:14px">Classic mistake: a shortcut for QA that ships to prod. Click to load the same page with the hidden flag.</p>
+<div class="s-row" style="justify-content:center">
+<a class="s-chip" href="/sentinel/exports">Normal (403)</a>
+<a class="s-chip" href="/sentinel/exports?debug=true" style="border-color:#d0314a;background:#2a1418">Debug mode</a>
+</div>
+<p style="margin-top:14px;font-size:12px;color:#8b93a8">Prefer reading code? <code style="color:#7ec8ff">cat /var/www/sentinel/routes.js</code> still shows the TODO comments.</p>
+</div>
 </div>
 </div>
 </body>
@@ -1379,14 +1482,14 @@ function handleSentinelExports(query) {
 <head><title>Sentinel Exports — DEBUG</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Courier New',monospace;background:#030303;color:#00cc44;padding:20px;font-size:13px;line-height:1.6}
-h1{color:#ffaa00;font-size:16px;margin-bottom:8px;letter-spacing:2px}
-.warn{color:#ffaa00;font-size:12px;margin-bottom:20px;background:#1a1000;border:1px solid #440000;padding:8px 12px;border-radius:4px}
-.dump{background:#050505;border:1px solid #1a3a1a;border-radius:6px;padding:20px;white-space:pre-wrap;word-break:break-all;font-size:12px;color:#00aa33}
-.dump .key{color:#00cc44}
-.dump .val{color:#00aa33}
-.dump .sensitive{color:#ffaa00;font-weight:700;background:#1a1000;padding:1px 4px;border-radius:2px}
-.dump .comment{color:#005522;font-style:italic}
+body{font-family:ui-monospace,monospace;background:#0c0d12;color:#b8f4c8;padding:22px;font-size:13px;line-height:1.65}
+h1{color:#ffb44d;font-size:18px;margin-bottom:12px;font-family:-apple-system,sans-serif;font-weight:800}
+.warn{color:#1a1205;font-size:13px;margin-bottom:20px;background:#f0d080;border:1px solid #c9a227;padding:12px 14px;border-radius:8px;font-family:-apple-system,sans-serif}
+.dump{background:#16181f;border:1px solid #2e6b4a;border-radius:10px;padding:22px;white-space:pre-wrap;word-break:break-all;font-size:13px;color:#8fd9a8}
+.dump .key{color:#6ee7a8}
+.dump .val{color:#b8f4c8}
+.dump .sensitive{color:#ffb44d;font-weight:800;background:#2a2310;padding:2px 8px;border-radius:4px;border:1px solid #c9a227}
+.dump .comment{color:#5a8f6e;font-style:italic}
 </style>
 </head>
 <body>
@@ -1432,17 +1535,29 @@ function handleSentinelDownload(query) {
 <html>
 <head><title>Sentinel Download</title>
 <style>${SENTINEL_CSS}
-.s-msg{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:400px;margin:40px auto}
-.s-msg h2{color:#880000;font-size:16px;margin-bottom:8px}
-.s-msg p{color:#440000;font-size:13px}
-.s-msg code{color:#cc0000}
+.s-room{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:32px;max-width:480px;margin:0 auto}
+.s-room h2{color:#fff;font-size:20px;margin-bottom:8px;text-align:center}
+.s-room p{color:#aeb4c5;font-size:14px;margin-bottom:18px;text-align:center;line-height:1.5}
+.path-form{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.path-form input{flex:1;min-width:200px;padding:11px 14px;background:#0f1016;border:1px solid #3a4152;border-radius:8px;color:#f0f2f8;font-size:14px}
+.path-form button{width:auto;padding:11px 20px}
+.quick{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:16px 0}
+.hint{font-size:13px;color:#8b93a8;margin-top:16px;padding:14px;background:#14151c;border-radius:8px;border:1px solid #2e3240}
 </style>
 </head>
 <body>
-<div class="s-topbar"><span class="s-logo">&#9670; FILE DOWNLOADS</span><span class="s-badge">SENTINEL</span></div>
-<div class="s-main"><div class="s-msg">
-<h2>Missing Parameter</h2>
-<p>Provide a <code>file</code> parameter.<br>Example: <code>?file=report.pdf</code></p>
+<div class="s-topbar"><span class="s-logo">&#9670; FILE ROOM</span><span class="s-badge">SENTINEL</span></div>
+<div class="s-main"><div class="s-room">
+<h2>Request a file</h2>
+<p>The server joins your filename to <code style="color:#7ec8ff">/var/sentinel/files/</code>. What if the name walks upward?</p>
+<div class="quick">
+<a class="s-chip" href="/sentinel/download?file=report.pdf">Safe: report.pdf</a>
+</div>
+<form method="GET" action="/sentinel/download" class="path-form">
+<input name="file" placeholder="e.g. report.pdf or ../../../etc/sentinel/master.key" value="report.pdf" autocomplete="off" />
+<button type="submit" class="s-btn" style="width:auto">Fetch</button>
+</form>
+<div class="hint">Stay in the Browser tab: edit the path, click Fetch, and read the response. The first line of the leaked key is your flag.</div>
 </div></div>
 </body>
 </html>`,
@@ -1463,11 +1578,20 @@ function handleSentinelDownload(query) {
 
   if (hasTraversal && resolvedStr === '/etc/sentinel/master.key') {
     const flag = STAGE_FLAGS[9];
+    const raw = FAKE_FS['/etc/sentinel/master.key'] || `MASTER_KEY_Zx9mK2pQrL`;
     return {
       status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-      body: FAKE_FS['/etc/sentinel/master.key'] || `MASTER_KEY_Zx9mK2pQrL`,
-      rawOutput: FAKE_FS['/etc/sentinel/master.key'] || `MASTER_KEY_Zx9mK2pQrL`,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html><html><head><title>Leak — master.key</title><style>${SENTINEL_CSS}
+.win-banner{background:#1a2230;border:2px solid #d0314a;border-radius:10px;padding:20px;text-align:center;margin-bottom:18px}
+.win-banner strong{display:block;color:#ffb44d;font-size:13px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+pre{background:#0f1016;border:1px solid #3a4152;color:#e8eaef;padding:18px;border-radius:8px;white-space:pre-wrap;font-size:14px;line-height:1.55}
+</style></head><body>
+<div class="s-topbar"><span class="s-logo">FILE ROOM — EXFILTRATION</span><span class="s-badge">LEAKED</span></div>
+<div class="s-main"><div style="max-width:640px;margin:0 auto;text-align:left">
+<div class="win-banner"><strong>Readable secret</strong><span style="color:#aeb4c5;font-size:14px">First line matches your submission field.</span></div>
+<pre>${escapeHtml(raw)}</pre></div></div></body></html>`,
+      rawOutput: raw,
       stageFlag: flag,
     };
   }
@@ -1481,18 +1605,19 @@ function handleSentinelDownload(query) {
 <html>
 <head><title>Sentinel Report</title>
 <style>${SENTINEL_CSS}
-.s-doc{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;max-width:500px;margin:40px auto}
-.s-doc h2{color:#ff2200;font-size:16px;margin-bottom:12px;letter-spacing:2px}
-.s-doc p{color:#880000;font-size:13px;line-height:1.7;margin-bottom:8px}
+.s-doc{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:28px;max-width:520px;margin:0 auto}
+.s-doc h2{color:#ffb44d;font-size:20px;margin-bottom:12px}
+.s-doc p{color:#aeb4c5;font-size:14px;line-height:1.65;margin-bottom:10px}
 </style>
 </head>
 <body>
-<div class="s-topbar"><span class="s-logo">&#9670; FILE DOWNLOADS</span><span class="s-badge">SENTINEL</span></div>
+<div class="s-topbar"><span class="s-logo">&#9670; FILE ROOM</span><span class="s-badge">SENTINEL</span></div>
 <div class="s-main"><div class="s-doc">
 <h2>Q4-2024 SURVEILLANCE REPORT</h2>
-<p>Serving: <code style="color:#cc0000">/var/sentinel/files/report.pdf</code></p>
+<p>Serving: <code style="color:#7ec8ff">/var/sentinel/files/report.pdf</code></p>
 <p>4,200 employees monitored. 312 flagged. 89 high-risk.</p>
-<p style="color:#440000;font-size:11px;margin-top:16px">Base directory: /var/sentinel/files/<br>Try accessing files outside this directory...</p>
+<p style="margin-top:16px;font-size:14px;color:#e8eaef">The download path is naive. Open the file field again and climb the tree with <strong style="color:#fff">../</strong> segments.</p>
+<p style="margin-top:14px"><a class="s-chip" href="/sentinel/download">Back to file room</a></p>
 </div></div>
 </body>
 </html>`,
@@ -1507,19 +1632,860 @@ function handleSentinelDownload(query) {
 <html>
 <head><title>File Not Found</title>
 <style>${SENTINEL_CSS}
-.s-msg{background:#0d0000;border:1px solid #440000;border-radius:8px;padding:32px;text-align:center;max-width:400px;margin:40px auto}
-.s-msg h2{color:#880000;font-size:16px;margin-bottom:8px}
-.s-msg p{color:#440000;font-size:13px}
-.s-msg code{color:#cc0000;word-break:break-all}
+.s-msg{background:#16181f;border:1px solid #2e3240;border-radius:12px;padding:32px;text-align:center;max-width:460px;margin:0 auto}
+.s-msg h2{color:#ffb44d;font-size:18px;margin-bottom:10px}
+.s-msg p{color:#aeb4c5;font-size:14px;line-height:1.5}
+.s-msg code{color:#7ec8ff;word-break:break-all;background:#0f1016;padding:2px 6px;border-radius:4px}
 </style>
 </head>
 <body>
-<div class="s-topbar"><span class="s-logo">&#9670; FILE DOWNLOADS</span><span class="s-badge">404</span></div>
+<div class="s-topbar"><span class="s-logo">&#9670; FILE ROOM</span><span class="s-badge">404</span></div>
 <div class="s-main"><div class="s-msg">
-<h2>File Not Found</h2>
-<p>Could not find: <code>${escapeHtml(file)}</code></p>
-<p style="margin-top:8px;font-size:11px">Files are served from /var/sentinel/files/</p>
+<h2>No file at that path</h2>
+<p>Requested: <code>${escapeHtml(file)}</code></p>
+<p style="margin-top:14px">Tip: chaining <code style="color:#7ec8ff">../</code> can escape <code style="color:#7ec8ff">/var/sentinel/files/</code> entirely.</p>
+<p style="margin-top:14px"><a class="s-chip" href="/sentinel/download">Try another path</a></p>
 </div></div>
+</body>
+</html>`,
+  };
+}
+
+// ============================================================
+// PIXELMART ROUTE HANDLERS
+// ============================================================
+
+function handleShopIndex(stageIndex) {
+  const products = [
+    { name: 'Laptop Pro', price: 999, img: 'laptop.jpg', desc: 'High-performance dev laptop' },
+    { name: 'Wireless Headphones', price: 299, img: 'headphones.jpg', desc: 'Noise-cancelling, 30hr battery' },
+    { name: 'Pixel Phone', price: 599, img: 'phone.jpg', desc: 'Latest flagship smartphone' },
+    { name: 'USB Drive', price: 49, img: 'usb.jpg', desc: '256GB fast storage' },
+  ];
+  const productCards = products.map(p => `
+    <div class="pm-product">
+      <div class="pm-product-img">[img: ${escapeHtml(p.img)}]</div>
+      <div class="pm-product-body">
+        <div class="pm-product-name">${escapeHtml(p.name)}</div>
+        <div class="pm-product-desc">${escapeHtml(p.desc)}</div>
+        <div class="pm-product-price">$${p.price}</div>
+        <a class="pm-btn-sm" href="/shop/checkout?item=${encodeURIComponent(p.name)}&price=${p.price}">Add to Cart</a>
+      </div>
+    </div>`).join('');
+
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Store</title>
+<style>${PM_CSS}
+.pm-main{flex-direction:column;align-items:stretch;padding:24px}
+.pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;max-width:900px;margin:0 auto;width:100%}
+.pm-product{background:#120f00;border:1px solid #664400;border-radius:10px;overflow:hidden}
+.pm-product-img{background:#1a1200;height:120px;display:flex;align-items:center;justify-content:center;color:#664400;font-size:12px;font-family:monospace}
+.pm-product-body{padding:14px}
+.pm-product-name{font-size:14px;font-weight:700;color:#ff9500;margin-bottom:4px}
+.pm-product-desc{font-size:12px;color:#886644;margin-bottom:10px}
+.pm-product-price{font-size:18px;font-weight:800;color:#ffbb44;margin-bottom:10px}
+.pm-btn-sm{display:block;text-align:center;padding:8px 14px;background:#ff9500;color:#000;border-radius:6px;font-size:12px;font-weight:800;text-decoration:none}
+.pm-btn-sm:hover{background:#ffaa22}
+.pm-intro{max-width:900px;margin:0 auto 20px;width:100%}
+.pm-intro h2{font-size:20px;color:#ff9500;margin-bottom:6px}
+.pm-intro p{color:#886644;font-size:13px}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">MEGACORP ACQUIRED</span>
+</div>
+<div class="pm-main">
+  <div class="pm-intro">
+    <h2>Welcome to PixelMart</h2>
+    <p>MegaCorp's newest e-commerce platform. Security review in progress.</p>
+  </div>
+  <div class="pm-grid">${productCards}</div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025 &mdash; A MegaCorp Company</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopCheckoutPage(query, stageIndex) {
+  const item = query.item || 'Laptop Pro';
+  const price = query.price || '999';
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Checkout</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+.order-summary{background:#1a1200;border:1px solid #664400;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px}
+.order-summary .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #33200066}
+.order-summary .row:last-child{border-bottom:none;font-weight:700;color:#ff9500}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">CHECKOUT</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Complete Your Order</h2>
+    <p>Review your order and confirm payment.</p>
+    <div class="order-summary">
+      <div class="row"><span>Item</span><span>${escapeHtml(item)}</span></div>
+      <div class="row"><span>Total</span><span>$${escapeHtml(price)}</span></div>
+    </div>
+    <div class="pm-note">Note: price is sent client-side — it can be modified before submission.</div>
+    <form method="POST" action="/shop/checkout" autocomplete="off">
+      <label>Item Name</label>
+      <input name="item" value="${escapeHtml(item)}" readonly />
+      <label>Price ($)</label>
+      <input name="price" value="${escapeHtml(price)}" />
+      <label>Quantity</label>
+      <input name="quantity" value="1" />
+      <button type="submit">Complete Purchase</button>
+    </form>
+  </div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025 &mdash; A MegaCorp Company</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopCheckout(postData, stageIndex) {
+  const item = postData.item || 'Unknown Item';
+  const price = parseFloat(postData.price) || 0;
+  const quantity = parseInt(postData.quantity) || 1;
+
+  const isExploit = price <= 0.01 && price > 0;
+  const flag = STAGE_FLAGS[5];
+
+  if (isExploit) {
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Order Confirmed!</title>
+<style>${PM_SUCCESS_CSS}
+@keyframes confetti {
+  0%{transform:translateY(-10px) rotate(0deg);opacity:1}
+  100%{transform:translateY(60px) rotate(360deg);opacity:0}
+}
+.confetti-dot{position:absolute;width:8px;height:8px;border-radius:50%;animation:confetti 1.5s ease-out forwards}
+.confetti-wrap{position:relative;height:60px;overflow:hidden;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="pm-topbar" style="background:#001a0d;border-bottom-color:#00cc55">
+  <span class="pm-logo" style="color:#00cc55">Pixel<span style="color:#55dd88">Mart</span></span>
+  <span class="pm-badge">ORDER CONFIRMED</span>
+</div>
+<div class="content">
+  <div class="order-card">
+    <div class="confetti-wrap">
+      <div class="confetti-dot" style="left:15%;background:#ff9500;animation-delay:.0s"></div>
+      <div class="confetti-dot" style="left:30%;background:#00cc55;animation-delay:.2s"></div>
+      <div class="confetti-dot" style="left:50%;background:#ffbb44;animation-delay:.1s"></div>
+      <div class="confetti-dot" style="left:70%;background:#ff9500;animation-delay:.3s"></div>
+      <div class="confetti-dot" style="left:85%;background:#00cc55;animation-delay:.15s"></div>
+    </div>
+    <h2>ORDER CONFIRMED!</h2>
+    <p>You paid <strong style="color:#fff;font-size:20px">$${price.toFixed(2)}</strong> for ${escapeHtml(item)}</p>
+    <div class="flag-box">
+      <div class="flag-label">Transaction ID (your flag)</div>
+      <div class="flag-val">${flag}</div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="order-row"><span class="order-key">Item</span><span class="order-val">${escapeHtml(item)}</span></div>
+      <div class="order-row"><span class="order-key">Listed Price</span><span class="order-val">$999.00</span></div>
+      <div class="order-row"><span class="order-key">You Paid</span><span class="order-val" style="color:#00ff66">$${price.toFixed(2)}</span></div>
+      <div class="order-row"><span class="order-key">Savings</span><span class="order-val" style="color:#00cc55">$${(999 - price).toFixed(2)}</span></div>
+      <div class="order-row"><span class="order-key">Quantity</span><span class="order-val">${quantity}</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>`,
+      stageFlag: flag,
+    };
+  }
+
+  // Normal purchase (price was not manipulated)
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Order Confirmed</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+.success-card{background:#120f00;border:2px solid #ff9500;border-radius:12px;padding:28px;text-align:center;max-width:420px}
+.success-card h2{color:#ff9500;font-size:22px;margin-bottom:8px}
+.success-card p{color:#886644;font-size:14px;margin-bottom:16px}
+.price-badge{font-size:28px;font-weight:800;color:#ffbb44;display:block;margin:12px 0}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">ORDER PLACED</span>
+</div>
+<div class="pm-main">
+  <div class="success-card">
+    <h2>Thank you for your order!</h2>
+    <p>${escapeHtml(item)}</p>
+    <span class="price-badge">$${price.toFixed(2)}</span>
+    <p style="color:#886644;font-size:12px">Order placed at full price. Hint: the price field in the POST body is trusted directly by the server — try modifying it.</p>
+  </div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopCatalog(stageIndex) {
+  const products = [
+    { name: 'Laptop Pro', file: 'laptop.jpg', price: 999 },
+    { name: 'Wireless Headphones', file: 'headphones.jpg', price: 299 },
+    { name: 'Pixel Phone', file: 'phone.jpg', price: 599 },
+    { name: 'USB Drive', file: 'usb.jpg', price: 49 },
+  ];
+  const cards = products.map(p => `
+    <div class="pm-product">
+      <img class="pm-product-img" src="/shop/image?file=${encodeURIComponent(p.file)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'" />
+      <div style="font-size:12px;color:#664400;padding:8px;font-family:monospace">/shop/image?file=${escapeHtml(p.file)}</div>
+      <div class="pm-product-body">
+        <div class="pm-product-name">${escapeHtml(p.name)}</div>
+        <div class="pm-product-price">$${p.price}</div>
+      </div>
+    </div>`).join('');
+
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Product Catalog</title>
+<style>${PM_CSS}
+.pm-main{flex-direction:column;align-items:stretch;padding:24px}
+.pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;max-width:900px;margin:0 auto;width:100%}
+.pm-product{background:#120f00;border:1px solid #664400;border-radius:10px;overflow:hidden}
+.pm-product-img{width:100%;height:120px;object-fit:cover;background:#1a1200;display:block}
+.pm-product-body{padding:14px}
+.pm-product-name{font-size:14px;font-weight:700;color:#ff9500;margin-bottom:4px}
+.pm-product-price{font-size:18px;font-weight:800;color:#ffbb44}
+.pm-info{max-width:900px;margin:0 auto 16px;width:100%;background:#1a0f00;border:1px solid #664400;border-radius:8px;padding:14px;font-size:12px;color:#886644}
+.pm-info code{color:#ff9500;font-family:monospace}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">PRODUCT CATALOG</span>
+</div>
+<div class="pm-main">
+  <div class="pm-info">
+    Images are served from: <code>/var/pixelmart/images/</code> via <code>/shop/image?file=FILENAME</code>
+  </div>
+  <div class="pm-grid">${cards}</div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopImage(query, stageIndex) {
+  const file = query.file || '';
+
+  if (!file) {
+    return {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Missing file parameter' }),
+    };
+  }
+
+  const BASE_DIR = '/var/pixelmart/images/';
+  // Simulate path resolution (vulnerable — no startsWith check)
+  const parts = (BASE_DIR + file).split('/').filter(Boolean);
+  const resolved = [];
+  for (const part of parts) {
+    if (part === '..') resolved.pop();
+    else if (part !== '.') resolved.push(part);
+  }
+  const resolvedStr = '/' + resolved.join('/');
+
+  const hasTraversal = file.includes('../');
+  // From /var/pixelmart/images/, going ../admin/credentials.json resolves to /var/pixelmart/admin/credentials.json
+  // Going ../../admin/credentials.json resolves to /var/admin/credentials.json
+  // Accept both since players may try either path
+  const targetsCredentials = resolvedStr === '/var/pixelmart/admin/credentials.json' ||
+    resolvedStr === '/var/admin/credentials.json';
+
+  if (hasTraversal && targetsCredentials) {
+    const flag = STAGE_FLAGS[6];
+    const credData = {
+      service: 'pixelmart-admin',
+      db_user: 'pixelmart_root',
+      db_password: 'pm_db_S3cr3t!',
+      api_key: 'pm_live_key_9f3k2j5h8d',
+      flag: flag,
+      note: 'DO NOT EXPOSE THIS FILE VIA THE WEB SERVER',
+    };
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>VAULT BREACHED</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:ui-monospace,'Cascadia Code',monospace;background:#0a0a06;color:#ffbb44;padding:24px;font-size:13px;line-height:1.6}
+h1{color:#ff4400;font-size:20px;margin-bottom:6px;font-family:-apple-system,sans-serif;font-weight:800;text-shadow:0 0 20px rgba(255,68,0,.4)}
+.sub{color:#886644;font-size:13px;margin-bottom:20px}
+.breach-box{background:#1a0500;border:2px solid #ff4400;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 0 30px rgba(255,68,0,.15)}
+.path{font-size:11px;color:#664400;margin-bottom:12px}
+.path code{color:#ff9500}
+pre{background:#0a0a06;border:1px solid #664400;border-radius:8px;padding:16px;color:#ffbb44;white-space:pre-wrap;word-break:break-all;font-size:13px}
+.flag-highlight{color:#00ff66;font-weight:800;background:#001a0a;padding:2px 6px;border-radius:4px;border:1px solid #00cc55}
+</style>
+</head>
+<body>
+<h1>VAULT BREACHED</h1>
+<div class="sub">Path traversal succeeded &mdash; escaped /var/pixelmart/images/</div>
+<div class="breach-box">
+  <div class="path">Resolved path: <code>${escapeHtml(resolvedStr)}</code></div>
+  <pre>${escapeHtml(JSON.stringify(credData, null, 2)).replace(escapeHtml(flag), `<span class="flag-highlight">${escapeHtml(flag)}</span>`)}</pre>
+</div>
+</body>
+</html>`,
+      stageFlag: flag,
+    };
+  }
+
+  // Serve a fake image placeholder for normal requests
+  const knownImages = ['laptop.jpg', 'headphones.jpg', 'phone.jpg', 'usb.jpg'];
+  const basename = resolvedStr.split('/').pop();
+  if (knownImages.includes(basename) && resolvedStr.startsWith(BASE_DIR)) {
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html><html><head><style>body{background:#1a1200;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:monospace;color:#664400;font-size:12px}</style></head><body>[img: ${escapeHtml(basename)}]</body></html>`,
+    };
+  }
+
+  if (hasTraversal) {
+    return {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'File not found', path: resolvedStr, hint: 'Keep trying — the admin credentials are at /var/pixelmart/admin/credentials.json' }),
+    };
+  }
+
+  return {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ error: 'Image not found', file: escapeHtml(file) }),
+  };
+}
+
+function handleShopUploadPage(stageIndex) {
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Seller Upload</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+.filter-note{background:#1a0f00;border:1px solid #664400;border-radius:8px;padding:14px;font-size:12px;color:#886644;margin-bottom:16px;font-family:monospace}
+.filter-note strong{color:#ff9500}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">SELLER PORTAL</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Upload Product Image</h2>
+    <p>Upload an image for your product listing. Only image files are allowed.</p>
+    <div class="filter-note">
+      <strong>Allowed:</strong> .jpg, .png only<br>
+      <strong>Blocked:</strong> .php, .js, .sh<br>
+      <span style="color:#664400">Server check: <code style="color:#ffbb44">if (filename.endsWith('.php') || filename.endsWith('.js') || filename.endsWith('.sh'))</code></span>
+    </div>
+    <form method="POST" action="/shop/upload" autocomplete="off">
+      <label>Filename</label>
+      <input name="filename" placeholder="e.g. product_photo.jpg" autocomplete="off" />
+      <label>File Content (text)</label>
+      <input name="content" placeholder="e.g. image data or script" autocomplete="off" />
+      <button type="submit">Upload Product Image</button>
+    </form>
+  </div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopUpload(postData, stageIndex) {
+  const filename = postData.filename || '';
+  const content = postData.content || '';
+
+  // VULNERABLE: case-sensitive denylist check
+  const blocked = filename.endsWith('.php') || filename.endsWith('.js') || filename.endsWith('.sh');
+
+  if (blocked) {
+    return {
+      status: 403,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>Upload Blocked</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">UPLOAD BLOCKED</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <div class="pm-err">403 &mdash; File type not allowed: ${escapeHtml(filename)}</div>
+    <p style="color:#886644;font-size:13px">The server rejected your upload. The extension filter blocked it.</p>
+    <p style="color:#664400;font-size:12px;margin-top:12px;font-family:monospace">Check: filename.endsWith('.php') returned true</p>
+    <p style="color:#664400;font-size:12px;margin-top:8px">Hint: Is this check case-sensitive?</p>
+  </div>
+</div>
+</body>
+</html>`,
+    };
+  }
+
+  // Any non-lowercase blocked extension bypasses the case-sensitive filter
+  // e.g. .PHP, .JS, .SH, .Php, .pHp — all bypass endsWith('.php')
+  const isExecutable = /\.(php|js|sh)$/i.test(filename);
+
+  if (isExecutable) {
+    const flag = STAGE_FLAGS[7];
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Upload Executed!</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:ui-monospace,'Cascadia Code',monospace;background:#0a0a06;color:#ffbb44;padding:24px;font-size:13px;line-height:1.6}
+.banner{background:#001a0d;border:2px solid #00cc55;border-radius:10px;padding:20px;margin-bottom:20px;text-align:center;box-shadow:0 0 30px rgba(0,204,85,.15)}
+.banner h1{color:#00cc55;font-size:20px;font-family:-apple-system,sans-serif;font-weight:800;margin-bottom:6px}
+.banner p{color:#55dd88;font-size:13px}
+.terminal{background:#0a0a0a;border:1px solid #224422;border-radius:8px;padding:16px;margin-bottom:16px}
+.terminal .prompt{color:#00cc55}
+.terminal .output{color:#ffbb44;margin:4px 0 12px 0;white-space:pre}
+.flag-box{background:#002210;border:1px solid #00cc55;border-radius:8px;padding:14px;margin-top:16px;text-align:center}
+.flag-label{font-size:10px;color:#00cc55;text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
+.flag-val{font-size:16px;font-weight:800;color:#00ff66;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="banner">
+  <h1>UPLOAD SUCCESSFUL</h1>
+  <p>${escapeHtml(filename)} executed on server!</p>
+</div>
+<div class="terminal">
+  <div class="prompt">$ # File uploaded to /uploads/${escapeHtml(filename)}</div>
+  <div class="prompt">$ # Filter bypass: .PHP does not match endsWith('.php')</div>
+  <div class="prompt">$ id</div>
+  <div class="output">uid=33(www-data) gid=33(www-data) groups=33(www-data)</div>
+  <div class="prompt">$ cat /etc/pixelmart/secrets.txt</div>
+  <div class="output">PIXELMART_SECRET_KEY=${escapeHtml(flag)}
+DB_URL=postgres://pixelmart:pm_db_S3cr3t!@db.internal/pixelmart
+STRIPE_KEY=sk_live_pm_4eC39HqLyjWDarjtT1</div>
+  <div class="prompt">$ uname -a</div>
+  <div class="output">Linux pixelmart-web-01 5.15.0 #1 SMP x86_64</div>
+</div>
+<div class="flag-box">
+  <div class="flag-label">Flag — Submit this value</div>
+  <div class="flag-val">${escapeHtml(flag)}</div>
+</div>
+</body>
+</html>`,
+      stageFlag: flag,
+    };
+  }
+
+  // Innocent file (jpg, png, etc.) — accepted normally
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>Upload Accepted</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">UPLOADED</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Upload Accepted</h2>
+    <p style="color:#886644;margin-bottom:12px">File saved: <strong style="color:#ffbb44">${escapeHtml(filename)}</strong></p>
+    <p style="color:#664400;font-size:12px">This was a safe filename. Try uploading a script file — the check is case-sensitive.</p>
+  </div>
+</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopRegisterPage(stageIndex) {
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Register</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">REGISTER</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Create Account</h2>
+    <p>Join PixelMart to start shopping and selling.</p>
+    <form method="POST" action="/shop/register" autocomplete="off">
+      <label>Username</label>
+      <input name="username" placeholder="Choose a username" autocomplete="off" />
+      <label>Password</label>
+      <input name="password" type="text" placeholder="Choose a password" autocomplete="off" />
+      <label>Email</label>
+      <input name="email" type="email" placeholder="your@email.com" autocomplete="off" />
+      <button type="submit">Create Account</button>
+    </form>
+    <div class="pm-note" style="margin-top:16px">Tip: the API uses Object.assign({}, req.body) — any POST field gets copied to the user object.</div>
+  </div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopRegister(postData, stageIndex) {
+  const username = postData.username || 'anonymous';
+  const email = postData.email || '';
+  // VULNERABLE: Object.assign copies ALL fields including role
+  const userObj = Object.assign({ role: 'user', verified: false }, postData);
+  const isAdmin = userObj.role === 'admin';
+  const flag = STAGE_FLAGS[8];
+
+  if (isAdmin) {
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Admin Account Created</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+.admin-banner{background:#1a1000;border:2px solid #ff9500;border-radius:10px;padding:20px;margin-bottom:16px;text-align:center}
+.admin-banner h2{color:#ff9500;font-size:20px;font-weight:800}
+.flag-box{background:#1a1000;border:1px solid #ff9500;border-radius:8px;padding:14px;margin-top:16px;text-align:center}
+.flag-label{font-size:10px;color:#886644;text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
+.flag-val{font-size:16px;font-weight:800;color:#ff9500;font-family:ui-monospace,monospace}
+.user-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #33200066;font-size:13px}
+.user-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge" style="background:#ff9500">ADMIN ACCOUNT</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <div class="admin-banner">
+      <h2>Mass Assignment Succeeded!</h2>
+      <p style="color:#886644;margin-top:8px;font-size:13px">role=admin was copied from your POST body via Object.assign()</p>
+    </div>
+    <div class="user-row"><span style="color:#886644">Username</span><span style="color:#ffbb44">${escapeHtml(username)}</span></div>
+    <div class="user-row"><span style="color:#886644">Email</span><span style="color:#ffbb44">${escapeHtml(email)}</span></div>
+    <div class="user-row"><span style="color:#886644">Role</span><span style="color:#ff9500;font-weight:800">admin</span></div>
+    <div class="flag-box">
+      <div class="flag-label">Admin Access Token</div>
+      <div class="flag-val">${flag}</div>
+    </div>
+    <p style="margin-top:14px;text-align:center"><a href="/shop/admin" style="color:#ff9500;font-size:13px">View Admin Panel &rarr;</a></p>
+  </div>
+</div>
+</body>
+</html>`,
+      stageFlag: flag,
+    };
+  }
+
+  // Normal user registration
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Account Created</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">REGISTERED</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Account Created!</h2>
+    <p>Welcome, <strong style="color:#ffbb44">${escapeHtml(username)}</strong>! Your account role is: <strong style="color:#886644">user</strong></p>
+    <div class="pm-note" style="margin-top:16px">Not the role you wanted? The API uses Object.assign(user, req.body). Any field in the POST body is assigned to the user object &mdash; including role.</div>
+  </div>
+</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopAdmin(stageIndex) {
+  const flag = STAGE_FLAGS[8];
+  const fakeUsers = [
+    { id: 1, username: 'alice', email: 'alice@pixelmart.com', role: 'user' },
+    { id: 2, username: 'bob_seller', email: 'bob@pixelmart.com', role: 'seller' },
+    { id: 3, username: 'carol', email: 'carol@pixelmart.com', role: 'user' },
+    { id: 4, username: 'admin', email: 'admin@pixelmart.com', role: 'admin' },
+    { id: 5, username: 'dave', email: 'dave@pixelmart.com', role: 'user' },
+  ];
+  const rows = fakeUsers.map(u => `<tr><td>${u.id}</td><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.email)}</td><td style="color:${u.role === 'admin' ? '#ff9500' : u.role === 'seller' ? '#ffbb44' : '#886644'}">${escapeHtml(u.role)}</td></tr>`).join('');
+
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0800;color:#ffbb44;min-height:100vh}
+.topbar{background:#150c00;border-bottom:2px solid #ff9500;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:16px;font-weight:800;color:#ff9500}
+.badge{background:#ff9500;color:#000;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px}
+.content{max-width:900px;margin:24px auto;padding:0 24px}
+.flag-box{background:#1a1000;border:2px solid #ff9500;border-radius:10px;padding:20px;margin-bottom:20px;text-align:center;box-shadow:0 0 30px rgba(255,149,0,.15)}
+.flag-label{font-size:10px;color:#886644;text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
+.flag-val{font-size:18px;font-weight:800;color:#ff9500;font-family:ui-monospace,monospace;background:#0a0500;padding:10px 20px;border-radius:6px;border:1px solid #664400;display:inline-block}
+.card{background:#150c00;border:1px solid #664400;border-radius:10px;padding:20px;margin-bottom:16px}
+.card h2{font-size:13px;color:#886644;text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;border-bottom:1px solid #33200066;padding-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:#664400;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;border-bottom:1px solid #33200066}
+td{padding:10px 12px;border-bottom:1px solid #1a0f00;color:#ffbb44}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">PixelMart Admin</span>
+  <span class="badge">ADMIN ACCESS</span>
+</div>
+<div class="content">
+  <div class="flag-box">
+    <div class="flag-label">Admin Access Token</div>
+    <div class="flag-val">${flag}</div>
+  </div>
+  <div class="card">
+    <h2>User Management</h2>
+    <table>
+      <tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th></tr>
+      ${rows}
+    </table>
+  </div>
+</div>
+</body>
+</html>`,
+    stageFlag: flag,
+  };
+}
+
+function handleShopResetPage(stageIndex) {
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Password Reset</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+.email-preview{background:#1a1200;border:1px solid #664400;border-radius:8px;padding:16px;margin-top:16px;font-size:12px;color:#886644;font-family:monospace;display:none}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">PASSWORD RESET</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Reset Password</h2>
+    <p>Enter your email to receive a password reset link.</p>
+    <form method="POST" action="/shop/reset" autocomplete="off">
+      <label>Email Address</label>
+      <input name="email" type="email" placeholder="admin@pixelmart.com" autocomplete="off" />
+      <button type="submit">Send Reset Link</button>
+    </form>
+    <div class="pm-note" style="margin-top:16px">Tip: The reset URL is built using the Host header from the request. Try: curl -X POST ... -H "Host: evil.com"</div>
+  </div>
+</div>
+<div class="pm-footer">PixelMart &copy; 2025</div>
+</body>
+</html>`,
+  };
+}
+
+function handleShopReset(postData, headers, stageIndex) {
+  const email = postData.email || '';
+  // VULNERABLE: builds reset URL from Host header
+  const hostHeader = headers['host'] || headers['Host'] || postData.host || 'portal.megacorp.internal';
+  const isDefaultHost = hostHeader === 'portal.megacorp.internal' || hostHeader === 'localhost:3000' || hostHeader === 'localhost';
+  const isPoisoned = !isDefaultHost;
+  const flag = STAGE_FLAGS[9];
+
+  const token = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.reset.' + Math.random().toString(36).slice(2, 10);
+  const resetUrl = `http://${hostHeader}/shop/reset/confirm?token=${token}`;
+
+  if (isPoisoned) {
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Reset Poisoned!</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a06;color:#ffbb44;min-height:100vh}
+.pm-topbar{background:#120f00;border-bottom:2px solid #ff4400;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+.pm-logo{font-size:17px;font-weight:800;color:#ff4400}
+.pm-badge{background:#ff4400;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:4px}
+.content{max-width:640px;margin:32px auto;padding:0 24px}
+.capture-banner{background:#1a0500;border:2px solid #ff4400;border-radius:10px;padding:20px;margin-bottom:20px;text-align:center;box-shadow:0 0 30px rgba(255,68,0,.15)}
+.capture-banner h2{color:#ff4400;font-size:20px;font-weight:800;margin-bottom:8px}
+.email-client{background:#0f0f0a;border:1px solid #664400;border-radius:10px;overflow:hidden;margin-bottom:20px}
+.email-header{background:#1a1200;border-bottom:1px solid #664400;padding:14px 16px;font-size:12px;color:#886644}
+.email-header div{margin-bottom:4px}
+.email-header div:last-child{margin-bottom:0}
+.email-body{padding:16px;font-size:13px;color:#ffbb44;line-height:1.7}
+.poisoned-link{color:#ff4400;font-weight:800;background:#1a0500;padding:6px 10px;border-radius:4px;border:1px solid #ff4400;display:inline-block;margin:8px 0;word-break:break-all;font-family:monospace;font-size:12px}
+.flag-box{background:#1a0500;border:1px solid #ff4400;border-radius:8px;padding:14px;text-align:center}
+.flag-label{font-size:10px;color:#886644;text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
+.flag-val{font-size:16px;font-weight:800;color:#ff4400;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">PixelMart</span>
+  <span class="pm-badge">ACCOUNT CAPTURED</span>
+</div>
+<div class="content">
+  <div class="capture-banner">
+    <h2>ACCOUNT CAPTURED</h2>
+    <p style="color:#ff8866;font-size:13px">Host header injected &mdash; reset link redirects to your server</p>
+  </div>
+  <div class="email-client">
+    <div class="email-header">
+      <div><strong style="color:#ffbb44">From:</strong> noreply@pixelmart.com</div>
+      <div><strong style="color:#ffbb44">To:</strong> ${escapeHtml(email)}</div>
+      <div><strong style="color:#ffbb44">Subject:</strong> PixelMart Password Reset</div>
+    </div>
+    <div class="email-body">
+      Hi ${escapeHtml(email.split('@')[0])},<br><br>
+      We received a request to reset your PixelMart password. Click the link below:<br><br>
+      <div class="poisoned-link">${escapeHtml(resetUrl)}</div>
+      <br>
+      <span style="color:#ff6644;font-size:12px">^ This link points to <strong>${escapeHtml(hostHeader)}</strong> instead of portal.megacorp.internal &mdash; when the admin clicks it, you receive their token.</span>
+    </div>
+  </div>
+  <div class="flag-box">
+    <div class="flag-label">Reset Token Intercepted</div>
+    <div class="flag-val">${flag}</div>
+  </div>
+</div>
+</body>
+</html>`,
+      stageFlag: flag,
+    };
+  }
+
+  // Normal reset — show email preview with real host
+  return {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: `<!DOCTYPE html>
+<html>
+<head><title>PixelMart — Reset Sent</title>
+<style>${PM_CSS}
+.pm-main{align-items:center;padding:32px 16px}
+.email-client{background:#0f0f0a;border:1px solid #664400;border-radius:10px;overflow:hidden;margin-top:16px;max-width:480px;width:100%}
+.email-header{background:#1a1200;border-bottom:1px solid #664400;padding:12px 14px;font-size:12px;color:#886644}
+.email-header div{margin-bottom:3px}
+.email-body{padding:14px;font-size:13px;color:#ffbb44;line-height:1.7}
+.reset-link{color:#ff9500;font-family:monospace;font-size:11px;word-break:break-all;background:#1a0f00;padding:6px 10px;border-radius:4px;border:1px solid #664400;display:inline-block;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">RESET SENT</span>
+</div>
+<div class="pm-main">
+  <div class="pm-card">
+    <h2>Reset Email Sent</h2>
+    <p>A reset link has been sent to <strong style="color:#ffbb44">${escapeHtml(email)}</strong>. Preview:</p>
+    <div class="email-client">
+      <div class="email-header">
+        <div><strong style="color:#ffbb44">From:</strong> noreply@pixelmart.com</div>
+        <div><strong style="color:#ffbb44">To:</strong> ${escapeHtml(email)}</div>
+        <div><strong style="color:#ffbb44">Subject:</strong> PixelMart Password Reset</div>
+      </div>
+      <div class="email-body">
+        Hi ${escapeHtml(email.split('@')[0])},<br><br>
+        Click to reset your password:<br>
+        <div class="reset-link">${escapeHtml(resetUrl)}</div>
+        <br>
+        <span style="color:#664400;font-size:11px">Host used: ${escapeHtml(hostHeader)}</span>
+      </div>
+    </div>
+    <div class="pm-note" style="margin-top:14px">The URL uses the Host header from your request. Try sending -H "Host: evil.com" to poison this link.</div>
+  </div>
+</div>
 </body>
 </html>`,
   };

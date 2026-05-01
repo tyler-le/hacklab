@@ -38,7 +38,8 @@ app.all('/webapp/*', (req, res) => {
 
   const body = req.method === 'POST' ? require('querystring').stringify(req.body || {}) : null;
   const state = getGameState(sid);
-  const result = handleWebappRequest(req.method, reqPath + (req._parsedUrl.search || ''), body, sid, state.currentStage);
+  const browserHeaders = req.headers.cookie ? { cookie: req.headers.cookie } : {};
+  const result = handleWebappRequest(req.method, reqPath + (req._parsedUrl.search || ''), body, sid, state.currentStage, browserHeaders);
   res.status(result.status).set(result.headers || {}).send(result.body);
 });
 

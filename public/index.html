@@ -75,26 +75,99 @@
 
     <div class="resize-handle-h" id="hHandle"></div>
 
-    <!-- Right: browser (always visible) -->
+    <!-- Right: browser + request builder -->
     <div class="right-col">
       <div class="panel browser-container">
-        <div class="panel-title">Browser</div>
-        <div class="urlbar-container">
-          <span class="urlbar-prefix">http://portal.megacorp.internal</span>
-          <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/login"
-                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 data-form-type="other" data-lpignore="true"
-                 onkeydown="if(event.key==='Enter')submitUrlbar()">
-          <button class="urlbar-go" onclick="submitUrlbar()">Go</button>
-          <button class="urlbar-source" id="viewSourceBtn" onclick="toggleViewSource()">View Source</button>
+
+        <!-- Panel tab bar -->
+        <div class="bp-tab-bar">
+          <button class="bp-tab active" id="bpTabBrowser" onclick="switchBrowserPanel('browser')">Browser</button>
+          <button class="bp-tab" id="bpTabRequest" onclick="switchBrowserPanel('request')">&#9654; Request Builder</button>
         </div>
-        <div class="browser-viewport" id="browserViewport">
-          <iframe id="browserFrame" sandbox="allow-same-origin allow-scripts allow-forms" class="browser-frame"></iframe>
-          <pre class="browser-source" id="browserSource" style="display:none"></pre>
-          <div class="browser-placeholder" id="browserPlaceholder">
-            <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
+
+        <!-- Browser view -->
+        <div id="bpBrowserView">
+          <div class="urlbar-container">
+            <span class="urlbar-prefix">http://portal.megacorp.internal</span>
+            <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/login"
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   data-form-type="other" data-lpignore="true"
+                   onkeydown="if(event.key==='Enter')submitUrlbar()">
+            <button class="urlbar-go" onclick="submitUrlbar()">Go</button>
+            <button class="urlbar-source" id="viewSourceBtn" onclick="toggleViewSource()">View Source</button>
+          </div>
+          <div class="browser-viewport" id="browserViewport">
+            <iframe id="browserFrame" sandbox="allow-same-origin allow-scripts allow-forms" class="browser-frame"></iframe>
+            <pre class="browser-source" id="browserSource" style="display:none"></pre>
+            <div class="browser-placeholder" id="browserPlaceholder">
+              <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
+            </div>
           </div>
         </div>
+
+        <!-- Request Builder view -->
+        <div id="bpRequestView" style="display:none">
+          <div class="rb-form-area">
+
+            <!-- Method + URL + Send -->
+            <div class="rb-method-url-row">
+              <select class="rb-method-select" id="rbMethod" onchange="rbUpdatePreview()">
+                <option value="GET">GET</option>
+                <option value="POST" selected>POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+                <option value="PATCH">PATCH</option>
+              </select>
+              <div class="rb-url-bar">
+                <span class="rb-url-base">http://portal.megacorp.internal</span>
+                <input class="rb-url-path" id="rbPath" placeholder="/shop/checkout"
+                       oninput="rbUpdatePreview()" autocomplete="off" spellcheck="false">
+              </div>
+              <button class="rb-send-btn" id="rbSendBtn" onclick="rbSend()">Send</button>
+            </div>
+
+            <!-- Headers section -->
+            <div class="rb-section">
+              <div class="rb-section-hdr">
+                <span class="rb-section-label">HEADERS</span>
+                <button class="rb-add-btn" onclick="rbAddRow('rbHeaderRows', 'Header name')">+ Add</button>
+              </div>
+              <div class="rb-rows" id="rbHeaderRows">
+                <span class="rb-empty-hint">No headers — click + Add to inject one (e.g. Host: evil.com)</span>
+              </div>
+            </div>
+
+            <!-- Body params section -->
+            <div class="rb-section">
+              <div class="rb-section-hdr">
+                <span class="rb-section-label">BODY PARAMS</span>
+                <button class="rb-add-btn" onclick="rbAddRow('rbBodyRows', 'param')">+ Add</button>
+              </div>
+              <div class="rb-rows" id="rbBodyRows">
+                <span class="rb-empty-hint">No body params — click + Add (used for POST requests)</span>
+              </div>
+            </div>
+
+            <!-- curl preview -->
+            <div class="rb-curl-box">
+              <span class="rb-curl-label">&#9654; curl equivalent</span>
+              <code class="rb-curl-code" id="rbCurlCode">curl "http://portal.megacorp.internal/"</code>
+            </div>
+
+          </div><!-- end rb-form-area -->
+
+          <!-- Response section -->
+          <div class="rb-response-area" id="rbResponseArea">
+            <div class="rb-response-hdr">
+              <span class="rb-section-label">RESPONSE</span>
+              <span class="rb-response-status" id="rbResponseStatus"></span>
+            </div>
+            <iframe class="rb-response-frame" id="rbResponseFrame"
+                    sandbox="allow-same-origin allow-scripts"></iframe>
+          </div>
+
+        </div><!-- end bpRequestView -->
+
       </div>
     </div>
 
@@ -107,15 +180,15 @@
 
 <div class="paywall-overlay" id="paywallOverlay">
   <div class="paywall-modal">
-    <div class="paywall-badge">&#8856; OPERATION BLACKSITE</div>
+    <div class="paywall-badge">&#9670; PIXELMART SECURITY REVIEW</div>
     <h2 class="paywall-title">5 Advanced Missions Await</h2>
-    <p class="paywall-story">You cracked MegaCorp's portal. But the conspiracy runs deeper. A secret surveillance program. 4,200 employees monitored without their knowledge. The evidence is buried inside.</p>
+    <p class="paywall-story">MegaCorp just acquired PixelMart. Security review starts today. The dev team was rushed and the platform is riddled with flaws. Find every vulnerability before it goes live.</p>
     <div class="paywall-levels">
-      <div class="paywall-level"><span class="paywall-num">06</span><span class="paywall-name">Clearance Level</span></div>
-      <div class="paywall-level"><span class="paywall-num">07</span><span class="paywall-name">Wrong Door</span></div>
-      <div class="paywall-level"><span class="paywall-num">08</span><span class="paywall-name">Breaking Point</span></div>
-      <div class="paywall-level"><span class="paywall-num">09</span><span class="paywall-name">Back Door</span></div>
-      <div class="paywall-level"><span class="paywall-num">10</span><span class="paywall-name">The Smoking Gun</span></div>
+      <div class="paywall-level"><span class="paywall-num">06</span><span class="paywall-name">Price Manipulation</span></div>
+      <div class="paywall-level"><span class="paywall-num">07</span><span class="paywall-name">Directory Traversal</span></div>
+      <div class="paywall-level"><span class="paywall-num">08</span><span class="paywall-name">File Upload Bypass</span></div>
+      <div class="paywall-level"><span class="paywall-num">09</span><span class="paywall-name">Mass Assignment</span></div>
+      <div class="paywall-level"><span class="paywall-num">10</span><span class="paywall-name">Password Reset Poisoning</span></div>
     </div>
     <div class="paywall-price-row">
       <span class="paywall-price">$0.99</span>

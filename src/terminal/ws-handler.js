@@ -4,10 +4,11 @@ const { getGameState } = require('../routes/game');
 const ShellSession = require('../shell/shell');
 const RealShellSession = require('../sandbox/real-shell-session');
 const { escapeHtml } = require('../utils');
+const { handleRequest: handleVirtualWebappRequest } = require('../webapp/vulnerable-app');
 
 function getNudge(stageIndex, result, command) {
   const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
-    'cookie_tamper', 'verb_tamper', 'verbose_errors', 'debug_param', 'path_traversal'];
+    'price_tamper', 'path_traversal', 'file_upload', 'mass_assign', 'reset_poison'];
   const stageId = STAGE_IDS[stageIndex];
 
   if (stageId === 'intro') {
@@ -54,46 +55,44 @@ function getNudge(stageIndex, result, command) {
     }
   }
 
-  if (stageId === 'cookie_tamper') {
-    // Hit the dashboard but got clearance error
-    if (/\/sentinel\/dashboard/.test(command) && result.stdout && /INSUFFICIENT CLEARANCE/i.test(result.stdout)) {
-      return '✓ You reached the dashboard! Your clearance is too low. Try sending a higher clearance cookie: curl -H "Cookie: clearance=5" ...';
+  if (stageId === 'price_tamper') {
+    if (/\/shop\/checkout/.test(command) && result.stdout && /ORDER CONFIRMED|checkout/i.test(result.stdout) && !result.stageFlag) {
+      return '✓ Checkout hit! But the price is still full price. Modify the `price` field in your -d params to 0.01';
     }
-    // Logged in but didn\'t go to dashboard yet
-    if (/\/sentinel\/login/.test(command) && result.loginSuccess) {
-      return '✓ Logged in! Check the Set-Cookie header in the response (use -v). Now visit /sentinel/dashboard with a modified cookie.';
-    }
-  }
-
-  if (stageId === 'verb_tamper') {
-    // Got the 403 on GET
-    if (/\/sentinel\/evidence/.test(command) && result.stdout && /403/.test(result.stdout) && !result.stageFlag) {
-      return '✓ GET is blocked! Try a different HTTP method. Hint: curl -X POST http://portal.megacorp.internal/sentinel/evidence';
-    }
-  }
-
-  if (stageId === 'verbose_errors') {
-    // Got a successful response (no crash)
-    if (/\/sentinel\/report/.test(command) && result.stdout && /Report Not Found/i.test(result.stdout)) {
-      return '✓ That worked, but no error was triggered. Try a non-numeric id value to cause a crash.';
-    }
-  }
-
-  if (stageId === 'debug_param') {
-    // Got a 403
-    if (/\/sentinel\/exports/.test(command) && result.stdout && /403/.test(result.stdout) && !result.stageFlag) {
-      return '✓ Forbidden! Read the source code: cat /var/www/sentinel/routes.js — look for a hidden query parameter.';
+    if (/\/shop\/checkout/.test(command) && result.stdout && /price/i.test(result.stdout) && !result.stageFlag) {
+      return '✓ Reached the checkout page! Now POST to /shop/checkout with -d "item=Laptop+Pro&price=0.01&quantity=1"';
     }
   }
 
   if (stageId === 'path_traversal') {
-    // Got a file not found
-    if (/\/sentinel\/download/.test(command) && result.stdout && /File Not Found/i.test(result.stdout)) {
-      return '✓ File not found. Try using ../ to escape the base directory. Target: ../../../etc/sentinel/master.key';
+    if (/\/shop\/image/.test(command) && /\.\.\//.test(command) && !result.stageFlag) {
+      if (!/credentials/.test(command)) {
+        return '✓ Path traversal works! But that file is not the target. Navigate to /var/pixelmart/admin/credentials.json';
+      }
     }
-    // Got the report.pdf
-    if (/\/sentinel\/download/.test(command) && result.stdout && /sentinel\/files\/report\.pdf/i.test(result.stdout)) {
-      return '✓ You can download files! Now try traversing up with ../ sequences to reach /etc/sentinel/master.key';
+    if (/\/shop\/image/.test(command) && !/\.\.\//.test(command) && !result.stageFlag) {
+      return '✓ Image endpoint hit! Now try adding ../ sequences to escape the base directory. Try: ?file=../../admin/credentials.json';
+    }
+  }
+
+  if (stageId === 'file_upload') {
+    if (/\/shop\/upload/.test(command) && result.stdout && /blocked|403|not allowed/i.test(result.stdout)) {
+      return '✓ Upload blocked! The check is case-sensitive. Try .PHP instead of .php';
+    }
+    if (/\/shop\/upload/.test(command) && !result.stageFlag && result.stdout) {
+      return '✓ Upload endpoint reached! Make sure your filename ends in .PHP (uppercase) to bypass the case-sensitive filter.';
+    }
+  }
+
+  if (stageId === 'mass_assign') {
+    if (/\/shop\/register/.test(command) && result.stdout && /registered|success/i.test(result.stdout) && !result.stageFlag) {
+      return '✓ Registered! But you got role=user. Try adding role=admin to your POST body.';
+    }
+  }
+
+  if (stageId === 'reset_poison') {
+    if (/\/shop\/reset/.test(command) && result.stdout && /reset link|email/i.test(result.stdout) && !result.stageFlag) {
+      return '✓ Reset email sent! But the link uses the default host. Use -H "Host: evil.com" to poison it.';
     }
   }
 
@@ -388,24 +387,41 @@ function handleWebSocket(ws) {
     const state = getGameState(sessionId);
     const stageIndex = state.currentStage;
     const alreadyCompleted = state.completedStages.has(stageIndex);
-    if (alreadyCompleted) return;
 
-    // Build a synthetic curl command and run it through the shell for win detection
-    let cmd;
-    if (msg.method === 'POST' && msg.body) {
-      cmd = `curl -d "${msg.body}" "http://portal.megacorp.internal${msg.path}"`;
-    } else {
-      cmd = `curl "http://portal.megacorp.internal${msg.path}"`;
+    // Always respond to builder requests even if stage is already done
+    if (alreadyCompleted && !msg.fromBuilder) return;
+
+    let path = msg.path || '/';
+    if (!path.startsWith('/')) path = '/' + path;
+
+    // Merge cookie header with any custom headers from the request builder
+    const headers = {};
+    if (msg.cookieHeader) headers.cookie = msg.cookieHeader;
+    if (msg.headers && typeof msg.headers === 'object') {
+      for (const [k, v] of Object.entries(msg.headers)) {
+        headers[k.toLowerCase()] = String(v);
+      }
     }
 
-    const result = shell.execute(cmd);
+    const result = handleVirtualWebappRequest(
+      msg.method || 'GET',
+      path,
+      msg.body || null,
+      sessionId,
+      stageIndex,
+      headers
+    );
 
-    // Always forward query/result to the monitor panel (visible on stages 3 & 4)
     const payload = {};
     if (result.query) payload.query = result.query;
     if (result.queryResult) payload.queryResult = result.queryResult;
 
-    if (result.stageFlag) {
+    // Always return the HTML body to the request builder
+    if (msg.fromBuilder) {
+      payload.responseHtml = result.body || result.stdout || '';
+    }
+
+    if (result.stageFlag && !alreadyCompleted) {
       if (!state.pendingFlags) state.pendingFlags = {};
       const isNew = state.pendingFlags[stageIndex] !== result.stageFlag;
       state.pendingFlags[stageIndex] = result.stageFlag;

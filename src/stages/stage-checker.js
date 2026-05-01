@@ -126,128 +126,128 @@ Congratulations — you've completed all 5 stages of HackLab!`,
   },
 
   // ============================================================
-  // OPERATION BLACKSITE — Advanced Pack (Stages 6–10)
+  // PIXELMART SECURITY REVIEW — Advanced Pack (Stages 6–10)
   // ============================================================
   {
-    id: 'cookie_tamper',
-    title: 'Stage 6: Cookie Tampering',
-    mission: `<span class="highlight">SCENARIO:</span> You've uncovered a hidden surveillance system called <span class="cmd">Project Sentinel</span>. A monitoring portal is running at <span class="cmd">/sentinel/login</span>. Credentials <span class="cmd">jsmith / password123</span> log you in with clearance level 1.
+    id: 'price_tamper',
+    title: 'Stage 6: Price Manipulation',
+    mission: `<span class="highlight">SCENARIO:</span> MegaCorp just acquired <span class="cmd">PixelMart</span>, a rushed e-commerce startup. Their checkout at <span class="cmd">/shop/checkout</span> trusts the <span class="cmd">price</span> field sent directly from the browser — zero server-side validation.
 
-<span class="highlight">OBJECTIVE:</span> The dashboard requires clearance level 5. The server sets a <span class="cmd">clearance</span> cookie on login — modify it to gain access to the Sentinel dashboard and retrieve the control token.
+<span class="highlight">OBJECTIVE:</span> Buy a Laptop Pro ($999) for just $0.01 by manipulating the price in your POST body. Find the Transaction ID on the confirmation page and <span class="cmd">submit</span> it.
 
-<span class="highlight">TIP:</span> Use <span class="cmd">curl -v</span> to see the Set-Cookie header on login. Then replay the request with a modified cookie using <span class="cmd">curl -H "Cookie: clearance=5"</span>.`,
+<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop</span> in the Browser tab to see the store. Read <span class="cmd">/var/www/pixelmart/routes.js</span> to see the vulnerability in the checkout handler.`,
     hints: [
-      'Log in first: curl -d "user=jsmith&pass=password123" http://portal.megacorp.internal/sentinel/login — use -v to see the Set-Cookie header.',
-      'Read the source: cat /var/www/sentinel/routes.js — see how the dashboard checks the clearance cookie.',
-      'Send the modified cookie: curl -H "Cookie: clearance=5" http://portal.megacorp.internal/sentinel/dashboard',
+      'Read the source: cat /var/www/pixelmart/routes.js — the checkout route reads price directly from req.body without validation.',
+      'Visit /shop/checkout?item=Laptop+Pro&price=999 in the Browser tab to see the order form. Notice the price field is editable.',
+      'Exploit: curl -X POST http://portal.megacorp.internal/shop/checkout -d "item=Laptop+Pro&price=0.01&quantity=1"',
     ],
-    flagPrompt: 'Enter the Sentinel control token...',
+    flagPrompt: 'Enter the Transaction ID from the order confirmation...',
     success: {
-      title: 'Cookie Tampering Successful!',
-      subtitle: 'You elevated your clearance level by forging a cookie value.',
-      explanation: `The server set clearance=1 in a cookie and trusted it on every subsequent request — never verifying it server-side.
+      title: 'Price Manipulation Successful!',
+      subtitle: 'You bought a $999 laptop for $0.01 by sending your own price.',
+      explanation: `The checkout endpoint read the price directly from the POST body — whatever you sent, the server accepted. This is "client-side trust": the server assumes the browser is honest.
 
-Cookies are stored in the browser and can be freely modified by any user. Using them as an authorization mechanism without cryptographic signing is fundamentally broken.
+This vulnerability appears in real e-commerce systems. Attackers intercept checkout requests with a proxy (Burp Suite) and change the price field before it reaches the server.
 
-DEFENSE: Never trust cookie values for authorization decisions. Use signed, server-side sessions (e.g. JWT with HMAC, or server-side session stores). Always validate permissions server-side on every request.`,
-    },
-  },
-  {
-    id: 'verb_tamper',
-    title: 'Stage 7: HTTP Verb Tampering',
-    mission: `<span class="highlight">SCENARIO:</span> An evidence locker at <span class="cmd">/sentinel/evidence</span> returns 403 Forbidden on GET requests. But the access control was written hastily — it only blocks GET.
-
-<span class="highlight">OBJECTIVE:</span> Bypass the access restriction by using a different HTTP method. Retrieve the classified case file and submit the flag inside.
-
-<span class="highlight">TIP:</span> Read the source code to see exactly which method is blocked. Try <span class="cmd">curl -X POST</span> to use a different verb.`,
-    hints: [
-      'Try the endpoint: curl http://portal.megacorp.internal/sentinel/evidence — you\'ll get a 403.',
-      'Read the source: cat /var/www/sentinel/routes.js — look at how the method check is implemented.',
-      'Bypass it: curl -X POST http://portal.megacorp.internal/sentinel/evidence',
-    ],
-    flagPrompt: 'Enter the case file flag...',
-    success: {
-      title: 'HTTP Verb Tampering Successful!',
-      subtitle: 'You bypassed access control by using an unexpected HTTP method.',
-      explanation: `The route handler checked if the method was GET and returned 403 — but allowed all other methods through. POST, PUT, PATCH, and DELETE all bypassed the restriction.
-
-This is a common mistake when developers block specific methods instead of implementing proper authorization.
-
-DEFENSE: Implement positive authorization (allow known-good) rather than negative (block known-bad). Use middleware that checks authentication and role on every request, regardless of HTTP method.`,
-    },
-  },
-  {
-    id: 'verbose_errors',
-    title: 'Stage 8: Verbose Error Messages',
-    mission: `<span class="highlight">SCENARIO:</span> The Sentinel report generator at <span class="cmd">/sentinel/report</span> accepts a numeric report ID. The developers left debug mode enabled — invalid input causes an unhandled exception that leaks internal details.
-
-<span class="highlight">OBJECTIVE:</span> Trigger the error condition to expose the leaked database credential in the error output. Submit the DB password you find.
-
-<span class="highlight">TIP:</span> The endpoint expects a numeric <span class="cmd">id</span> parameter. What happens when you pass something unexpected?`,
-    hints: [
-      'Try the normal endpoint: curl "http://portal.megacorp.internal/sentinel/report?id=1" — it works fine with a numeric ID.',
-      'Now try an invalid value: curl "http://portal.megacorp.internal/sentinel/report?id=x" — watch what the error reveals.',
-      'The stack trace exposes sensitive configuration. Look for the dbPassword field in the error output.',
-    ],
-    flagPrompt: 'Enter the leaked DB password...',
-    success: {
-      title: 'Verbose Error Exploited!',
-      subtitle: 'You extracted database credentials from a leaked error stack trace.',
-      explanation: `The application crashed on invalid input and returned a full stack trace — including internal configuration values like database credentials.
-
-Verbose error messages are a goldmine for attackers. They reveal file paths, library versions, query structures, and sometimes credentials.
-
-DEFENSE: Never expose stack traces or internal errors to users in production. Log errors server-side, return generic messages to clients. Use a global error handler that sanitizes all error output.`,
-    },
-  },
-  {
-    id: 'debug_param',
-    title: 'Stage 9: Hidden Debug Parameter',
-    mission: `<span class="highlight">SCENARIO:</span> The Sentinel export system at <span class="cmd">/sentinel/exports</span> is locked down — it returns 403. But a developer left a debug backdoor in the code that was never removed before deployment.
-
-<span class="highlight">OBJECTIVE:</span> Find the hidden debug parameter in the source code and use it to bypass the access restriction. Retrieve the debug key from the dump.
-
-<span class="highlight">TIP:</span> Read the source: <span class="cmd">cat /var/www/sentinel/routes.js</span> and look for TODO comments.`,
-    hints: [
-      'The endpoint is locked: curl http://portal.megacorp.internal/sentinel/exports returns 403.',
-      'Read the source: cat /var/www/sentinel/routes.js — find the TODO comment about a debug parameter.',
-      'Use the debug parameter: curl "http://portal.megacorp.internal/sentinel/exports?debug=true"',
-    ],
-    flagPrompt: 'Enter the debug key...',
-    success: {
-      title: 'Debug Backdoor Exploited!',
-      subtitle: 'You accessed a locked endpoint via a forgotten debug parameter.',
-      explanation: `A developer added ?debug=true during development to bypass auth checks and never removed it before shipping to production — creating a hidden backdoor.
-
-Debug and test code in production is extremely dangerous. It's often undocumented, poorly secured, and forgotten.
-
-DEFENSE: Use feature flags with proper access controls for debug modes. Conduct pre-deployment code reviews that specifically check for debug/test code. Use linters that flag TODO/FIXME comments in production builds.`,
+DEFENSE: Never trust client-supplied prices. Look up the price server-side from your product database using the item name/ID. Only use the client-submitted item identifier, never the price.`,
     },
   },
   {
     id: 'path_traversal',
-    title: 'Stage 10: Path Traversal',
-    mission: `<span class="highlight">SCENARIO:</span> The Sentinel file server at <span class="cmd">/sentinel/download</span> serves files from <span class="cmd">/var/sentinel/files/</span> using a <span class="cmd">file</span> parameter. There is no path sanitization — you can escape the intended directory.
+    title: 'Stage 7: Directory Traversal',
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's image server at <span class="cmd">/shop/image?file=laptop.jpg</span> serves product images from <span class="cmd">/var/pixelmart/images/</span>. The file path is never validated — you can escape the base directory.
 
-<span class="highlight">OBJECTIVE:</span> Use path traversal to read <span class="cmd">/etc/sentinel/master.key</span> — the master encryption key for the entire Sentinel surveillance network. This is the smoking gun.
+<span class="highlight">OBJECTIVE:</span> Use <span class="cmd">../</span> sequences to read <span class="cmd">/var/pixelmart/admin/credentials.json</span>. The flag is inside that file.
 
-<span class="highlight">TIP:</span> Use <span class="cmd">../</span> sequences to traverse up the directory tree.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/catalog</span> in the Browser tab to see the image URL pattern, then manipulate the <span class="cmd">file</span> parameter.`,
     hints: [
-      'Try a normal file: curl "http://portal.megacorp.internal/sentinel/download?file=report.pdf" — it serves the file.',
-      'Read the source: cat /var/www/sentinel/routes.js — notice path.join() is used but the result is never validated against the base directory.',
-      'Traverse to the key: curl "http://portal.megacorp.internal/sentinel/download?file=../../../etc/sentinel/master.key"',
+      'Open /shop/catalog in the Browser tab — images load via /shop/image?file=laptop.jpg. The base dir is /var/pixelmart/images/.',
+      'Read the source: cat /var/www/pixelmart/routes.js — path.join() with no startsWith() check means ../ works.',
+      'Exploit: curl "http://portal.megacorp.internal/shop/image?file=../admin/credentials.json"',
     ],
-    flagPrompt: 'Enter the master key value...',
+    flagPrompt: 'Enter the flag from the admin credentials file...',
     success: {
-      title: 'Path Traversal — MegaCorp Exposed!',
-      subtitle: 'You retrieved the master encryption key for Project Sentinel.',
-      explanation: `By inserting ../ sequences into the file parameter, you escaped the /var/sentinel/files/ directory and read an arbitrary file from the server. path.join() was used but the result was never verified to stay within the intended directory.
+      title: 'Directory Traversal Successful!',
+      subtitle: 'You escaped the image directory and read admin credentials.',
+      explanation: `By inserting ../../ into the file parameter, you walked up the directory tree from /var/pixelmart/images/ to /var/pixelmart/admin/credentials.json. The server never checked whether the resolved path stayed within the intended base directory.
 
-This attack can expose any file the web server can read — config files, private keys, /etc/passwd, source code, and more.
+This attack can read any file the web server process has permission to access — config files, private keys, /etc/passwd, and more.
 
-DEFENSE: After joining paths, always verify the resolved path starts with the expected base directory (use path.resolve() and check with startsWith). Use a whitelist of allowed files. Run the web server with minimal filesystem permissions.
+DEFENSE: After joining paths with path.join(), always call path.resolve() and verify the result starts with your expected base directory. Reject any request where it doesn't.`,
+    },
+  },
+  {
+    id: 'file_upload',
+    title: 'Stage 8: File Upload Bypass',
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's seller portal at <span class="cmd">/shop/upload</span> lets sellers upload product images. The server blocks <span class="cmd">.php</span>, <span class="cmd">.js</span>, and <span class="cmd">.sh</span> extensions — but the check is case-sensitive.
 
-MISSION COMPLETE: You've exposed MegaCorp's illegal surveillance program, Project Sentinel. The master key is in your hands. The truth is out.`,
+<span class="highlight">OBJECTIVE:</span> Upload a file with a <span class="cmd">.PHP</span> extension (uppercase) to bypass the filter. The server will execute it and show you the flag.
+
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/upload</span> in the Browser tab to see the upload form. Read <span class="cmd">routes.js</span> to understand exactly what the filter checks.`,
+    hints: [
+      'Read the source: cat /var/www/pixelmart/routes.js — the denylist check uses endsWith(".php") which is case-sensitive.',
+      'Visit /shop/upload in the Browser tab and try uploading shell.php — it gets blocked. Now try shell.PHP.',
+      'Exploit: curl -X POST http://portal.megacorp.internal/shop/upload -d "filename=shell.PHP&content=test"',
+    ],
+    flagPrompt: 'Enter the flag from the upload execution output...',
+    success: {
+      title: 'File Upload Bypass Successful!',
+      subtitle: 'You bypassed the extension filter using uppercase to achieve code execution.',
+      explanation: `The server blocked .php, .js, and .sh using a case-sensitive string comparison — endsWith('.php') does not match .PHP. The uploaded file was then served directly and executed.
+
+This is a classic bypass. Real-world filters must lowercase the filename before checking, or better yet, use an allowlist of safe extensions (.jpg, .png, .gif) instead of a denylist of dangerous ones.
+
+DEFENSE: Lowercase the entire filename before extension checking. Use an allowlist, not a denylist. Store uploads outside the web root so they can never be executed, and randomize filenames on the server.`,
+    },
+  },
+  {
+    id: 'mass_assign',
+    title: 'Stage 9: Mass Assignment',
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's registration API at <span class="cmd">/shop/register</span> uses <span class="cmd">Object.assign({}, req.body)</span> — every POST field is blindly copied to the user object, including <span class="cmd">role</span>.
+
+<span class="highlight">OBJECTIVE:</span> Register with <span class="cmd">role=admin</span> in your POST body to get admin access. Then visit <span class="cmd">/shop/admin</span> to find the flag.
+
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> in the Browser tab to see the form. Read <span class="cmd">routes.js</span> to spot the dangerous Object.assign call.`,
+    hints: [
+      'Read the source: cat /var/www/pixelmart/routes.js — Object.assign(user, req.body) copies all POST fields including hidden ones like role.',
+      'Visit /shop/register in the Browser tab. The form has username, password, email — but you can send extra fields via curl.',
+      'Exploit: curl -X POST http://portal.megacorp.internal/shop/register -d "username=hacker&password=test&email=h@x.com&role=admin"',
+    ],
+    flagPrompt: 'Enter the Admin Access Token from the admin panel...',
+    success: {
+      title: 'Mass Assignment Exploited!',
+      subtitle: 'You registered as admin by injecting the role field.',
+      explanation: `The registration endpoint used Object.assign to copy all POST body fields onto the user object. Since role was never explicitly excluded, sending role=admin in the POST body set your account to admin — a privilege the form never offered.
+
+Mass assignment vulnerabilities are common in frameworks that auto-bind request parameters to model objects (Rails, Laravel, Django, etc.).
+
+DEFENSE: Explicitly whitelist allowed fields when creating objects from user input: const user = { username: body.username, password: body.password, email: body.email }. Never use Object.assign or spread operators directly with untrusted input.`,
+    },
+  },
+  {
+    id: 'reset_poison',
+    title: 'Stage 10: Password Reset Poisoning',
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's password reset at <span class="cmd">/shop/reset</span> builds the reset URL using the HTTP <span class="cmd">Host</span> header from the request. An attacker can inject a fake host to poison the reset link.
+
+<span class="highlight">OBJECTIVE:</span> Send a reset request for <span class="cmd">admin@pixelmart.com</span> with a spoofed <span class="cmd">Host: evil.com</span> header. The email preview will show the poisoned link — find the flag there.
+
+<span class="highlight">TIP:</span> Use <span class="cmd">-H "Host: evil.com"</span> in curl. Read <span class="cmd">routes.js</span> to see how the reset URL is constructed.`,
+    hints: [
+      'Read the source: cat /var/www/pixelmart/routes.js — the reset URL is built with req.headers.host, which the attacker controls.',
+      'Visit /shop/reset in the Browser tab to see the reset form. The email preview panel shows exactly what would be emailed.',
+      'Exploit: curl -X POST http://portal.megacorp.internal/shop/reset -d "email=admin@pixelmart.com" -H "Host: evil.com"',
+    ],
+    flagPrompt: 'Enter the Reset Token from the poisoned email preview...',
+    success: {
+      title: 'Password Reset Poisoning Successful!',
+      subtitle: 'You redirected the admin reset link to your server.',
+      explanation: `The reset endpoint built the password reset URL using the Host header from the HTTP request: http://\${req.headers.host}/shop/reset/confirm?token=... By sending Host: evil.com, you made the "email" contain a link to your own server. When the admin clicks it, they send you their valid reset token.
+
+This is a real attack used to take over accounts at scale. The Host header is fully attacker-controlled.
+
+DEFENSE: Never use the Host header to build URLs in security-critical flows. Hardcode the base URL in server configuration (process.env.BASE_URL) and use that instead.
+
+MISSION COMPLETE: You've found every flaw in the PixelMart platform. Security review complete.`,
     },
   },
 ];

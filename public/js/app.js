@@ -18,7 +18,7 @@ const stageActiveTab = {};
 
 // Stage ID list for tab management
 const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
-  'cookie_tamper', 'verb_tamper', 'verbose_errors', 'debug_param', 'path_traversal'];
+  'price_tamper', 'path_traversal', 'file_upload', 'mass_assign', 'reset_poison'];
 
 // Monitor title per stage (null = hide the panel)
 const MONITOR_TITLES = {
@@ -554,3 +554,175 @@ function restartFromCompletion() {
     }
   });
 })();
+
+// ========== REQUEST BUILDER ==========
+
+function switchBrowserPanel(tab) {
+  const browserView = document.getElementById('bpBrowserView');
+  const requestView = document.getElementById('bpRequestView');
+  const btnBrowser  = document.getElementById('bpTabBrowser');
+  const btnRequest  = document.getElementById('bpTabRequest');
+
+  if (tab === 'browser') {
+    browserView.style.display = '';
+    requestView.style.display = 'none';
+    btnBrowser.classList.add('active');
+    btnRequest.classList.remove('active');
+  } else {
+    browserView.style.display = 'none';
+    requestView.style.display = '';
+    btnBrowser.classList.remove('active');
+    btnRequest.classList.add('active');
+    rbUpdatePreview();
+  }
+}
+
+let _rbRowId = 0;
+
+function rbAddRow(containerId, keyPlaceholder) {
+  const container = document.getElementById(containerId);
+  // Remove empty-hint if present
+  const hint = container.querySelector('.rb-empty-hint');
+  if (hint) hint.remove();
+
+  const id = ++_rbRowId;
+  const row = document.createElement('div');
+  row.className = 'rb-kv-row';
+  row.dataset.rowId = id;
+  row.innerHTML =
+    `<input class="rb-kv-key" placeholder="${keyPlaceholder}" oninput="rbUpdatePreview()" autocomplete="off" spellcheck="false">` +
+    `<input class="rb-kv-val" placeholder="value" oninput="rbUpdatePreview()" autocomplete="off" spellcheck="false">` +
+    `<button class="rb-kv-remove" onclick="rbRemoveRow(this,'${containerId}')" title="Remove">&#x2715;</button>`;
+  container.appendChild(row);
+  row.querySelector('.rb-kv-key').focus();
+  rbUpdatePreview();
+}
+
+function rbRemoveRow(btn, containerId) {
+  const row = btn.closest('.rb-kv-row');
+  const container = document.getElementById(containerId);
+  row.remove();
+  // Restore hint if no rows left
+  if (!container.querySelector('.rb-kv-row')) {
+    const hint = document.createElement('span');
+    hint.className = 'rb-empty-hint';
+    hint.textContent = containerId === 'rbHeaderRows'
+      ? 'No headers — click + Add to inject one (e.g. Host: evil.com)'
+      : 'No body params — click + Add (used for POST requests)';
+    container.appendChild(hint);
+  }
+  rbUpdatePreview();
+}
+
+function rbGetRows(containerId) {
+  const rows = document.querySelectorAll(`#${containerId} .rb-kv-row`);
+  const result = [];
+  rows.forEach(row => {
+    const key = row.querySelector('.rb-kv-key').value.trim();
+    const val = row.querySelector('.rb-kv-val').value.trim();
+    if (key) result.push({ key, val });
+  });
+  return result;
+}
+
+function rbUpdatePreview() {
+  const method  = document.getElementById('rbMethod').value;
+  const path    = document.getElementById('rbPath').value.trim() || '/';
+  const headers = rbGetRows('rbHeaderRows');
+  const body    = rbGetRows('rbBodyRows');
+
+  let lines = ['curl'];
+  if (method !== 'GET') lines[0] += ` -X ${method}`;
+
+  for (const { key, val } of headers) {
+    lines.push(`  -H "${key}: ${val}"`);
+  }
+
+  if (method !== 'GET' && body.length > 0) {
+    const bodyStr = body.map(({ key, val }) => `${key}=${val}`).join('&');
+    lines.push(`  -d "${bodyStr}"`);
+  }
+
+  let fullPath = path;
+  if (method === 'GET' && body.length > 0) {
+    const qs = body.map(({ key, val }) => `${key}=${val}`).join('&');
+    fullPath = path + (path.includes('?') ? '&' : '?') + qs;
+  }
+
+  lines.push(`  "http://portal.megacorp.internal${fullPath}"`);
+  document.getElementById('rbCurlCode').textContent = lines.join(' \\\n');
+}
+
+function rbSend() {
+  const method  = document.getElementById('rbMethod').value;
+  const path    = document.getElementById('rbPath').value.trim() || '/';
+  const headers = rbGetRows('rbHeaderRows');
+  const body    = rbGetRows('rbBodyRows');
+
+  const headersObj = {};
+  headers.forEach(({ key, val }) => { headersObj[key] = val; });
+
+  let finalPath = path;
+  let bodyStr   = null;
+
+  if (method === 'GET' && body.length > 0) {
+    const qs = body.map(({ key, val }) => `${key}=${val}`).join('&');
+    finalPath = path + (path.includes('?') ? '&' : '?') + qs;
+  } else if (method !== 'GET' && body.length > 0) {
+    bodyStr = body.map(({ key, val }) => `${key}=${val}`).join('&');
+  }
+
+  // Show loading state
+  const responseArea  = document.getElementById('rbResponseArea');
+  const statusEl      = document.getElementById('rbResponseStatus');
+  const frameEl       = document.getElementById('rbResponseFrame');
+  responseArea.classList.add('visible');
+  statusEl.textContent = 'Sending...';
+  statusEl.className = 'rb-response-status';
+  frameEl.srcdoc = '<body style="background:#0a0a0a;color:#444;font-family:monospace;padding:20px;font-size:13px">Sending request...</body>';
+
+  const btn = document.getElementById('rbSendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'browser-navigate',
+      method,
+      path: finalPath,
+      body: bodyStr || '',
+      headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
+      fromBuilder: true,
+    }));
+  }
+}
+
+// Called from terminal.js when browser-navigate returns responseHtml
+function handleBuilderResponse(html, exploitDetected) {
+  const responseArea = document.getElementById('rbResponseArea');
+  const statusEl     = document.getElementById('rbResponseStatus');
+  const frameEl      = document.getElementById('rbResponseFrame');
+  const btn          = document.getElementById('rbSendBtn');
+
+  responseArea.classList.add('visible');
+
+  if (exploitDetected) {
+    statusEl.textContent = '✓ Exploit fired! Check the response for your flag.';
+    statusEl.className = 'rb-response-status exploit';
+  } else {
+    statusEl.textContent = 'Response received';
+    statusEl.className = 'rb-response-status success';
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
+
+  if (html) {
+    const isHtml = /<[a-z]/i.test(html);
+    if (isHtml) {
+      frameEl.srcdoc = html;
+    } else {
+      const escaped = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      frameEl.srcdoc = `<body style="background:#0a0a0a;color:#00ff41;font-family:monospace;padding:16px;margin:0;white-space:pre-wrap;font-size:13px">${escaped}</body>`;
+    }
+  }
+}

@@ -263,7 +263,7 @@ body::after {
 .stage-dot .stage-tooltip {
   display: none;
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   background: var(--panel);
@@ -273,7 +273,7 @@ body::after {
   padding: 4px 8px;
   border-radius: 4px;
   white-space: nowrap;
-  margin-bottom: 6px;
+  margin-top: 6px;
   pointer-events: none;
 }
 
@@ -804,6 +804,271 @@ body::after {
 
 .stage-dot.locked .stage-tooltip {
   color: var(--amber);
+}
+
+/* ========== REQUEST BUILDER ========== */
+
+/* Panel tab bar (Browser | Request Builder) */
+.bp-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.bp-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--green-dim);
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.65rem;
+  padding: 7px 14px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: -1px;
+  transition: color 0.2s;
+}
+
+.bp-tab.active { color: var(--green); border-bottom-color: var(--green); }
+.bp-tab:hover:not(.active) { color: var(--green); }
+
+/* Browser view wrapper */
+#bpBrowserView { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* Request Builder view wrapper */
+#bpRequestView { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* Form area (scrollable top section) */
+.rb-form-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Method + URL + Send row */
+.rb-method-url-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rb-method-select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--amber);
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 6px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.rb-url-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.rb-url-base {
+  color: var(--green-dim);
+  font-size: 0.62rem;
+  padding: 6px 6px 6px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+}
+
+.rb-url-path {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--green);
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.68rem;
+  padding: 6px 8px;
+  outline: none;
+  min-width: 0;
+}
+
+.rb-url-path::placeholder { color: var(--green-dark); }
+
+.rb-send-btn {
+  background: var(--green);
+  color: #000;
+  border: none;
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.rb-send-btn:hover { background: var(--amber); }
+.rb-send-btn:disabled { background: var(--border); color: var(--green-dim); cursor: default; }
+
+/* Sections (headers / body) */
+.rb-section {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rb-section-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.rb-section-label {
+  font-size: 0.58rem;
+  color: var(--green-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.rb-add-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--green-dim);
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.62rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rb-add-btn:hover { color: var(--green); border-color: var(--green); }
+
+.rb-rows { display: flex; flex-direction: column; gap: 4px; }
+
+.rb-empty-hint {
+  font-size: 0.6rem;
+  color: var(--green-dark);
+  font-style: italic;
+}
+
+.rb-kv-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.rb-kv-key, .rb-kv-val {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--green);
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.67rem;
+  padding: 5px 7px;
+  border-radius: 3px;
+  outline: none;
+  min-width: 0;
+}
+
+.rb-kv-key:focus, .rb-kv-val:focus { border-color: var(--green-dim); }
+.rb-kv-key::placeholder, .rb-kv-val::placeholder { color: var(--green-dark); }
+
+.rb-kv-remove {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--red);
+  font-size: 0.75rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.rb-kv-remove:hover { background: var(--red); color: #000; border-color: var(--red); }
+
+/* curl preview */
+.rb-curl-box {
+  padding: 8px 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rb-curl-label {
+  display: block;
+  font-size: 0.58rem;
+  color: var(--green-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.rb-curl-code {
+  display: block;
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--amber);
+  word-break: break-all;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Response area */
+.rb-response-area {
+  flex: 0 0 45%;
+  border-top: 2px solid var(--border);
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rb-response-area.visible { display: flex; }
+
+.rb-response-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rb-response-status {
+  font-size: 0.65rem;
+  font-family: 'Fira Mono', monospace;
+  color: var(--green-dim);
+}
+
+.rb-response-status.success { color: var(--green); }
+.rb-response-status.exploit { color: var(--amber); }
+
+.rb-response-frame {
+  flex: 1;
+  border: none;
+  background: #fff;
+  min-height: 0;
 }
 
 /* ========== PAYWALL MODAL ========== */

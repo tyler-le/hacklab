@@ -159,7 +159,15 @@ function onCommandResult(msg) {
     onFlagResult(msg.flagResult === 'correct');
   }
 
-  // Exploit detected via browser navigation
+  // Response from Request Builder — route to builder panel, skip terminal output
+  if (msg.responseHtml !== undefined) {
+    if (typeof handleBuilderResponse === 'function') {
+      handleBuilderResponse(msg.responseHtml, msg.exploitDetected);
+    }
+    return;
+  }
+
+  // Exploit detected via browser navigation (not from builder)
   if (msg.exploitDetected) {
     printTerminal('<span class="info">✓ Exploit successful! Find the secret in the browser and submit it above.</span>');
     const scroll = document.getElementById('terminalScroll');
@@ -453,6 +461,7 @@ function loadInBrowser(path, method, body) {
           method: method || 'GET',
           body: body || '',
           sessionId,
+          cookieHeader: typeof document !== 'undefined' ? document.cookie : '',
         }));
       }
     })
