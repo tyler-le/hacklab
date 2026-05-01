@@ -241,7 +241,7 @@ function buildFilesystem(stageIndex) {
             'app.use(routes);',
             '',
             'app.listen(3000, () => {',
-            '  console.log("MegaCorp Portal running on http://localhost:3000");',
+            '  console.log("MegaCorp Portal running on http://portal.megacorp.internal");',
             '});',
           ].join('\n'),
           'db.js': [
@@ -307,7 +307,7 @@ function buildFilesystem(stageIndex) {
           'cat routes.js',
           'sqlite3 /var/lib/megacorp/megacorp.db "SELECT * FROM users"',
           'cat /etc/secrets/api_keys.txt',
-          'curl http://localhost:3000/api/diagnostic?host=localhost',
+          'curl http://portal.megacorp.internal/api/diagnostic?host=localhost',
           'pm2 restart megacorp',
         ].join('\n'),
         'notes.txt': NOTES[stage] || NOTES[0],
@@ -318,7 +318,7 @@ function buildFilesystem(stageIndex) {
       jsmith: {
         '.bash_history': 'ls\npwd\nwhoami',
         'readme.txt': [
-          'Welcome to MegaCorp! Your profile is at http://localhost:3000/api/employees/1',
+          'Welcome to MegaCorp! Your profile is at http://portal.megacorp.internal/api/employees/1',
           '',
           'Employee Directory:',
           '  ID 1 - jsmith (Sales)',

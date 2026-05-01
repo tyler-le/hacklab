@@ -34,7 +34,7 @@ function curl(ctx, args) {
 
   // Normalize URL — strip http://localhost or similar
   let path = url;
-  path = path.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, '');
+  path = path.replace(/^https?:\/\/(localhost|127\.0\.0\.1|portal\.megacorp\.internal)(:\d+)?/, '');
   if (!path.startsWith('/')) path = '/' + path;
 
   const result = handleRequest(method, path, data, ctx.sessionId, ctx.currentStage);
@@ -42,7 +42,7 @@ function curl(ctx, args) {
   const output = [];
   if (verbose) {
     output.push(`> ${method} ${path} HTTP/1.1`);
-    output.push(`> Host: localhost`);
+    output.push(`> Host: portal.megacorp.internal`);
     if (data) output.push(`> Content-Type: application/x-www-form-urlencoded`);
     output.push(`>`);
     output.push(`< HTTP/1.1 ${result.status}`);

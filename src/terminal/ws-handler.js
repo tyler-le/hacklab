@@ -326,9 +326,9 @@ function handleWebSocket(ws) {
     // Build a synthetic curl command and run it through the shell for win detection
     let cmd;
     if (msg.method === 'POST' && msg.body) {
-      cmd = `curl -d "${msg.body}" "http://localhost:3000${msg.path}"`;
+      cmd = `curl -d "${msg.body}" "http://portal.megacorp.internal${msg.path}"`;
     } else {
-      cmd = `curl "http://localhost:3000${msg.path}"`;
+      cmd = `curl "http://portal.megacorp.internal${msg.path}"`;
     }
 
     const result = shell.execute(cmd);

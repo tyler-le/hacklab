@@ -3,7 +3,7 @@ const STAGES = [
   {
     id: 'intro',
     title: 'Stage 1: Information Leakage',
-    mission: `<span class="highlight">SCENARIO:</span> You have shell access to the MegaCorp web server. Their employee portal is running at <span class="cmd">http://localhost:3000</span>.
+    mission: `<span class="highlight">SCENARIO:</span> You have shell access to the MegaCorp web server. Their employee portal is running at <span class="cmd">http://portal.megacorp.internal</span>.
 
 <span class="highlight">OBJECTIVE:</span> Find valid credentials, log in to the portal, and <span class="cmd">submit</span> the admin API key you find inside.
 
@@ -11,7 +11,7 @@ const STAGES = [
     hints: [
       "Look around the web server files. Try: ls /var/www/megacorp/",
       "Read the source code: cat /var/www/megacorp/routes.js — look for the login route.",
-      "The login page has an HTML comment with test credentials. Use: curl -d \"user=admin&pass=password123\" http://localhost:3000/login",
+      "The login page has an HTML comment with test credentials. Use: curl -d \"user=admin&pass=password123\" http://portal.megacorp.internal/login",
     ],
     flagPrompt: 'Enter the Admin API key you found...',
     success: {
@@ -35,7 +35,7 @@ DEFENSE: Never put secrets in client-side code. Use environment variables and st
     hints: [
       "Read the source code: cat routes.js — look at the employees endpoint and its comments.",
       "Check notes.txt for the employee ID list. The API has no authorization check — try different IDs.",
-      "The admin is at id=4. Try: curl http://localhost:3000/api/employees/4",
+      "The admin is at id=4. Try: curl http://portal.megacorp.internal/api/employees/4",
     ],
     flagPrompt: 'Enter the Personal Access Token you found...',
     success: {
@@ -58,8 +58,8 @@ DEFENSE: Always check authorization on every request. Use random UUIDs instead o
 <span class="highlight">TIP:</span> Read the source code to see how user input is rendered. Is it escaped before being inserted into the HTML?`,
     hints: [
       "Read the source: cat /var/www/megacorp/routes.js — look at how the search term is rendered in the HTML. Is it escaped?",
-      "Test HTML injection: curl \"http://localhost:3000/api/search?q=<b>test</b>\" — if 'test' appears bold, the input isn't escaped. Now try a &lt;script&gt; tag.",
-      "Read the cookie: curl \"http://localhost:3000/api/search?q=<script>alert(document.cookie)</script>\"",
+      "Test HTML injection: open the browser tab, go to /api/search, and search for <b>test</b> — if 'test' appears bold in the results, the input isn't escaped. Now try a &lt;script&gt; tag.",
+      "Read the cookie: curl \"http://portal.megacorp.internal/api/search?q=<script>alert(document.cookie)</script>\"",
     ],
     flagPrompt: 'Enter the session cookie value you stole...',
     success: {
@@ -82,8 +82,8 @@ DEFENSE: Escape all user input before rendering in HTML. Set HttpOnly on cookies
 <span class="highlight">TIP:</span> Read the source code. How does the admin login build its SQL query compared to the regular login?`,
     hints: [
       "Read the source: cat /var/www/megacorp/routes.js — compare /login (safe) vs /api/admin/login (vulnerable). Notice the string concatenation.",
-      "Probe for SQL injection: curl -X POST -d \"user='\" http://localhost:3000/api/admin/login — the error reveals the query structure.",
-      "Inject: curl -X POST -d \"user=' OR 1=1 --&pass=x\" http://localhost:3000/api/admin/login",
+      "Probe for SQL injection: curl -X POST -d \"user='\" http://portal.megacorp.internal/api/admin/login — the error reveals the query structure.",
+      "Inject: curl -X POST -d \"user=' OR 1=1 --&pass=x\" http://portal.megacorp.internal/api/admin/login",
     ],
     flagPrompt: 'Enter the database master password you found...',
     success: {
