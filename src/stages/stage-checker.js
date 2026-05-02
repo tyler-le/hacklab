@@ -157,7 +157,7 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
     title: 'Stage 7: Directory Traversal',
     mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=laptop.jpg</span>. The filename is appended to a base directory on disk — and the server never checks if the resulting path escapes that directory.
 
-<span class="highlight">OBJECTIVE:</span> Use <span class="cmd">../</span> sequences in the <span class="cmd">file</span> parameter to walk up the directory tree and read <span class="cmd">/var/pixelmart/admin/credentials.json</span>. The flag is inside it.
+<span class="highlight">OBJECTIVE:</span> Use <span class="cmd">../</span> sequences in the <span class="cmd">file</span> parameter to walk up the directory tree and read <span class="cmd">../admin/credentials.json</span>. The flag is inside it.
 
 <span class="highlight">TIP:</span> Browse to <span class="cmd">/shop/catalog</span> and read the source code to understand how the path is constructed.`,
     hints: [
