@@ -729,7 +729,7 @@ body{font-family:sans-serif;background:#f4f6f9;margin:0}
 </style></head><body>
 <div class="topbar">
   <h1>MegaCorp Employee Portal</h1>
-  <div class="nav"><a href="/api/employees/1">ID 1</a><a href="/api/employees/2">ID 2</a><a href="/api/employees/3">ID 3</a><a href="/api/employees/4">ID 4</a><a href="/api/employees/5">ID 5</a></div>
+  <div class="nav"><a href="/">Portal Home</a></div>
 </div>
 <div class="content">
   <div class="card">
