@@ -276,7 +276,7 @@ const PIXELMART_NOTES = {
     '- Fix: use path.resolve() then check startsWith(BASE_DIR)',
     '',
     'Image base dir: /var/pixelmart/images/',
-    'Admin files: /var/pixelmart/admin/ (SHOULD NOT BE ACCESSIBLE FROM WEB)',
+    'WARNING: web server has read access outside this directory!',
   ].join('\n'),
   7: [
     'TODO List (PixelMart admin):',
@@ -361,16 +361,7 @@ function buildFilesystem(stageIndex) {
         'phone.jpg': '[Binary JPEG — Pixel Phone product image]',
         'usb.jpg': '[Binary JPEG — USB Drive product image]',
       },
-      admin: {
-        'credentials.json': JSON.stringify({
-          service: 'pixelmart-admin',
-          db_user: 'pixelmart_root',
-          db_password: 'pm_db_S3cr3t!',
-          api_key: 'pm_live_key_9f3k2j5h8d',
-          flag: 'VAULT-Wm3nK8xR',
-          note: 'DO NOT EXPOSE THIS FILE VIA THE WEB SERVER',
-        }, null, 2),
-      },
+      admin: {},
       uploads: {},
     },
     www: {
@@ -407,10 +398,8 @@ function buildFilesystem(stageIndex) {
     'cat routes.js',
     'cat notes.txt',
     'ls /var/pixelmart/images/',
-    'ls /var/pixelmart/admin/',
     'curl http://portal.megacorp.internal/shop',
     'curl "http://portal.megacorp.internal/shop/image?file=laptop.jpg"',
-    'curl "http://portal.megacorp.internal/shop/image?file=../admin/credentials.json"',
     'curl -X POST http://portal.megacorp.internal/shop/orders -d "item=Laptop+Pro&price=0.01&quantity=1"',
     'curl -X POST http://portal.megacorp.internal/shop/upload -d "filename=shell.PHP&content=test"',
     'curl -X POST http://portal.megacorp.internal/shop/register -d "username=hacker&password=test&email=h@x.com&role=admin"',

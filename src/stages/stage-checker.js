@@ -155,15 +155,15 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
   {
     id: 'path_traversal',
     title: 'Stage 7: Directory Traversal',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart's image server at <span class="cmd">/shop/image?file=laptop.jpg</span> serves product images from <span class="cmd">/var/pixelmart/images/</span>. The file path is never validated — you can escape the base directory.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's image server at <span class="cmd">/shop/image?file=laptop.jpg</span> serves product images from a restricted directory — but the file path is never validated.
 
-<span class="highlight">OBJECTIVE:</span> Use <span class="cmd">../</span> sequences to read <span class="cmd">/var/pixelmart/admin/credentials.json</span>. The flag is inside that file.
+<span class="highlight">OBJECTIVE:</span> Escape the image directory and read the admin credentials file. The flag is inside it.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/catalog</span> in the Browser tab to see the image URL pattern, then manipulate the <span class="cmd">file</span> parameter.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/catalog</span> in the Browser tab to see the image URL pattern.`,
     hints: [
-      'Open /shop/catalog in the Browser tab — images load via /shop/image?file=laptop.jpg. The base dir is /var/pixelmart/images/.',
-      'Read the source: cat /var/www/pixelmart/routes.js — path.join() with no startsWith() check means ../ works.',
-      'Exploit: curl "http://portal.megacorp.internal/shop/image?file=../admin/credentials.json"',
+      'Look at how /shop/image?file= works in /shop/catalog. Read cat /var/www/pixelmart/routes.js to see how the path is constructed.',
+      'The image base directory is /var/pixelmart/images/. Use ../ sequences in the file param to walk up to a sibling directory.',
+      'You need to reach /var/pixelmart/admin/credentials.json. Count how many ../ steps it takes from /var/pixelmart/images/.',
     ],
     flagPrompt: 'Enter the flag from the admin credentials file...',
     success: {
