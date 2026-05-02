@@ -3,11 +3,11 @@
  */
 
 function whoami() {
-  return { stdout: 'www-data' };
+  return { stdout: 'hacklab' };
 }
 
 function id() {
-  return { stdout: 'uid=33(www-data) gid=33(www-data) groups=33(www-data)' };
+  return { stdout: 'uid=1000(hacklab) gid=1000(hacklab) groups=1000(hacklab),33(www-data)' };
 }
 
 function pwd(ctx) {
@@ -34,7 +34,7 @@ function env() {
     stdout: [
       'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
       'HOME=/var/www',
-      'USER=www-data',
+      'USER=hacklab',
       'SHELL=/bin/bash',
       'HOSTNAME=megacorp-web-01',
       'LANG=en_US.UTF-8',

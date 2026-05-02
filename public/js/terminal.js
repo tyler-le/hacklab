@@ -4,7 +4,7 @@ let ws = null;
 let sessionId = localStorage.getItem('hacklab-session');
 let commandHistory = [];
 let historyIndex = -1;
-let currentPrompt = 'www-data@megacorp:/var/www/megacorp$ ';
+let currentPrompt = 'hacklab@megacorp:/var/www/megacorp$ ';
 let sqliteMode = false;
 let lastBrowserHtml = '';
 
@@ -73,9 +73,9 @@ function onGameInit(msg) {
     ws.send(JSON.stringify({ type: 'setUnlocked' }));
   }
 
-  printTerminal('<span class="sys">HackLab v2.0 initialized.</span>');
+  printTerminal('<span class="sys">HackLab initialized.</span>');
   printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');
-  printTerminal('<span class="sys">Shell access as: www-data</span>');
+  printTerminal('<span class="sys">Shell access as: hacklab</span>');
   printTerminal('');
   printTerminal(`<span class="warn">═══ ${msg.stage.title.toUpperCase()} ═══</span>`);
   printTerminal('');
