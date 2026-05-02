@@ -200,13 +200,14 @@ function renderStageDots() {
     'Stage 3: Cross-Site Scripting (XSS)',
     'Stage 4: SQL Injection',
     'Stage 5: Command Injection',
-    'Stage 6: Cookie Tampering',
-    'Stage 7: HTTP Verb Tampering',
-    'Stage 8: Verbose Error Messages',
-    'Stage 9: Hidden Debug Parameter',
-    'Stage 10: Path Traversal',
+    'Stage 6: Price Manipulation',
+    'Stage 7: Directory Traversal',
+    'Stage 8: File Upload Bypass',
+    'Stage 9: Mass Assignment',
+    'Stage 10: Password Reset Poisoning',
   ];
-  el.innerHTML = titles.map((title, i) => {
+  // Only render dots up to the server-authorised stage count
+  el.innerHTML = titles.slice(0, stageCount).map((title, i) => {
     const isAdvanced = i >= FREE_STAGE_COUNT;
     const isLocked = isAdvanced && !advancedUnlocked;
     const isDone = completedStages.has(i);
