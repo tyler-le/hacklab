@@ -204,7 +204,7 @@ router.post('/verify-payment', async (req, res) => {
         const state = getGameState(gameSessionId);
         state.advancedUnlocked = true;
       }
-      res.json({ unlocked: true });
+      res.json({ unlocked: true, stageCount: getStageCount() });
     } else {
       res.json({ unlocked: false });
     }

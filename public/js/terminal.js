@@ -52,11 +52,12 @@ function onGameInit(msg) {
   currentStage = msg.currentStage;
   completedStages = new Set(msg.completedStages);
   stageCount = msg.stageCount;
-  if (msg.devUnlock) advancedUnlocked = true;
+  advancedUnlocked = msg.advancedUnlocked || false;
+  extraLevels = msg.extraLevels || false;
 
   // Show Request Builder tab only when extra levels are enabled server-side
   const rbTab = document.getElementById('bpTabRequest');
-  if (rbTab) rbTab.style.display = msg.extraLevels ? '' : 'none';
+  if (rbTab) rbTab.style.display = extraLevels ? '' : 'none';
 
   if (msg.prompt) {
     currentPrompt = msg.prompt;
@@ -67,11 +68,6 @@ function onGameInit(msg) {
   updateMonitorTitle(currentStage);
   document.getElementById('missionText').innerHTML = msg.stage.mission;
   const fi = document.getElementById('flagInput'); if (fi && msg.stage.flagPrompt) fi.placeholder = msg.stage.flagPrompt;
-
-  // Sync advanced unlock state to server
-  if (typeof advancedUnlocked !== 'undefined' && advancedUnlocked && ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'setUnlocked' }));
-  }
 
   printTerminal('<span class="sys">HackLab initialized.</span>');
   printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');

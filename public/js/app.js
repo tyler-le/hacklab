@@ -2,12 +2,13 @@
 
 let currentStage = 0;
 let completedStages = new Set();
-let stageCount = 10;
+let stageCount = 5;
 let stageCompleted = false;
 let hintIndex = 0;
 
-// Advanced pack unlock state
-let advancedUnlocked = localStorage.getItem('hacklab_advanced') === 'true';
+// Advanced pack state — set from server on init, never from localStorage
+let advancedUnlocked = false;
+let extraLevels = false;
 const FREE_STAGE_COUNT = 5;
 
 // Per-stage UI state
@@ -354,6 +355,7 @@ function dismissSuccess() {
 
 // ========== PAYWALL ==========
 function showPaywall() {
+  if (!extraLevels) return;
   document.getElementById('paywallOverlay').classList.add('visible');
 }
 
@@ -398,9 +400,8 @@ async function startUnlock() {
         });
         const d = await r.json();
         if (d.unlocked) {
-          localStorage.setItem('hacklab_advanced', 'true');
           advancedUnlocked = true;
-          // Notify server via WS (will be done when WS connects in terminal.js onGameInit)
+          if (d.stageCount) stageCount = d.stageCount;
         }
       } catch (e) { /* silently fail */ }
     }

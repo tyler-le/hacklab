@@ -134,12 +134,6 @@ function handleWebSocket(ws) {
       case 'browser-navigate':
         handleBrowserNavigate(msg);
         break;
-      case 'setUnlocked':
-        if (sessionId) {
-          const state = getGameState(sessionId);
-          state.advancedUnlocked = true;
-        }
-        break;
     }
   });
 
@@ -176,6 +170,7 @@ function handleWebSocket(ws) {
           completedStages: [...state.completedStages],
           stageCount: PUBLIC_STAGE_COUNT,
           extraLevels: EXTRA_LEVELS,
+          advancedUnlocked: state.advancedUnlocked || false,
           stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
           prompt: shell.getPrompt(),
           devUnlock,
@@ -200,6 +195,7 @@ function handleWebSocket(ws) {
       completedStages: [],
       stageCount: PUBLIC_STAGE_COUNT,
       extraLevels: EXTRA_LEVELS,
+      advancedUnlocked: state.advancedUnlocked || false,
       stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
       prompt: shell.getPrompt(),
       devUnlock,
