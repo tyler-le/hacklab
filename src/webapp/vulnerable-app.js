@@ -86,8 +86,9 @@ function handleRequest(method, url, body, sessionId, stageIndex, headers) {
   // --- PixelMart routes (Advanced Pack stages 6-10) ---
   if (route === '/shop' || route === '/shop/') return handleShopIndex(stageIndex);
   if (route === '/shop/catalog') return handleShopCatalog(stageIndex);
-  if (route === '/shop/checkout' && method === 'POST') return handleShopCheckout(postData, stageIndex);
-  if (route === '/shop/checkout') return handleShopCheckoutPage(query, stageIndex);
+  if (route === '/shop/cart' && method === 'POST') return handleShopAddToCart(postData, stageIndex);
+  if (route === '/shop/cart') return handleShopCartPage(query, stageIndex);
+  if (route === '/shop/orders' && method === 'POST') return handleShopPlaceOrder(postData, stageIndex);
   if (route === '/shop/image') return handleShopImage(query, stageIndex);
   if (route === '/shop/upload' && method === 'POST') return handleShopUpload(postData, stageIndex);
   if (route === '/shop/upload') return handleShopUploadPage(stageIndex);
@@ -1795,7 +1796,11 @@ function handleShopIndex(stageIndex) {
         <div class="pm-product-name">${escapeHtml(p.name)}</div>
         <div class="pm-product-desc">${escapeHtml(p.desc)}</div>
         <div class="pm-product-price">$${p.price}</div>
-        <a class="pm-btn-sm" href="/shop/checkout?item=${encodeURIComponent(p.name)}&price=${p.price}">Add to Cart</a>
+        <form method="POST" action="/shop/cart" style="margin:0">
+          <input type="hidden" name="item" value="${escapeHtml(p.name)}" />
+          <input type="hidden" name="price" value="${p.price}" />
+          <button type="submit" class="pm-btn-sm">Add to Cart</button>
+        </form>
       </div>
     </div>`).join('');
 
@@ -1839,7 +1844,17 @@ function handleShopIndex(stageIndex) {
   };
 }
 
-function handleShopCheckoutPage(query, stageIndex) {
+function handleShopAddToCart(postData, stageIndex) {
+  const item = postData.item || 'Laptop Pro';
+  const price = postData.price || '999';
+  return {
+    status: 302,
+    headers: { 'Location': `/shop/cart?item=${encodeURIComponent(item)}&price=${encodeURIComponent(price)}` },
+    body: '',
+  };
+}
+
+function handleShopCartPage(query, stageIndex) {
   const item = query.item || 'Laptop Pro';
   const price = query.price || '999';
   return {
@@ -1847,36 +1862,34 @@ function handleShopCheckoutPage(query, stageIndex) {
     headers: { 'Content-Type': 'text/html' },
     body: `<!DOCTYPE html>
 <html>
-<head><title>PixelMart — Checkout</title>
+<head><title>PixelMart — Your Cart</title>
 <style>${PM_CSS}
 .pm-main{align-items:center;padding:32px 16px}
-.order-summary{background:#1a1200;border:1px solid #664400;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px}
-.order-summary .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #33200066}
-.order-summary .row:last-child{border-bottom:none;font-weight:700;color:#ff9500}
+.cart-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px}
+.cart-table th{text-align:left;color:#886644;padding:6px 10px;border-bottom:1px solid #33200088;font-weight:600}
+.cart-table td{padding:8px 10px;border-bottom:1px solid #33200044;color:#cc9955}
+.cart-table td.price{color:#ffbb44;font-weight:700;font-size:15px}
+.cart-total{display:flex;justify-content:space-between;padding:10px 10px 0;font-size:15px;font-weight:700;color:#ff9500}
 </style>
 </head>
 <body>
 <div class="pm-topbar">
   <span class="pm-logo">Pixel<span>Mart</span></span>
-  <span class="pm-badge">CHECKOUT</span>
+  <span class="pm-badge">YOUR CART</span>
 </div>
 <div class="pm-main">
   <div class="pm-card">
-    <h2>Complete Your Order</h2>
-    <p>Review your order and confirm payment.</p>
-    <div class="order-summary">
-      <div class="row"><span>Item</span><span>${escapeHtml(item)}</span></div>
-      <div class="row"><span>Total</span><span>$${escapeHtml(price)}</span></div>
-    </div>
-    <div class="pm-note">Note: price is sent client-side — it can be modified before submission.</div>
-    <form method="POST" action="/shop/checkout" autocomplete="off">
-      <label>Item Name</label>
-      <input name="item" value="${escapeHtml(item)}" readonly />
-      <label>Price ($)</label>
-      <input name="price" value="${escapeHtml(price)}" />
-      <label>Quantity</label>
-      <input name="quantity" value="1" />
-      <button type="submit">Complete Purchase</button>
+    <h2>Review Your Cart</h2>
+    <table class="cart-table">
+      <tr><th>Item</th><th>Qty</th><th>Price</th></tr>
+      <tr><td>${escapeHtml(item)}</td><td>1</td><td class="price">$${escapeHtml(price)}</td></tr>
+    </table>
+    <div class="cart-total"><span>Total</span><span>$${escapeHtml(price)}</span></div>
+    <form method="POST" action="/shop/orders" autocomplete="off" style="margin-top:20px">
+      <input type="hidden" name="item" value="${escapeHtml(item)}" />
+      <input type="hidden" name="price" value="${escapeHtml(price)}" />
+      <input type="hidden" name="quantity" value="1" />
+      <button type="submit">Place Order</button>
     </form>
   </div>
 </div>
@@ -1886,7 +1899,7 @@ function handleShopCheckoutPage(query, stageIndex) {
   };
 }
 
-function handleShopCheckout(postData, stageIndex) {
+function handleShopPlaceOrder(postData, stageIndex) {
   const item = postData.item || 'Unknown Item';
   const price = parseFloat(postData.price) || 0;
   const quantity = parseInt(postData.quantity) || 1;
@@ -1970,7 +1983,7 @@ function handleShopCheckout(postData, stageIndex) {
     <h2>Thank you for your order!</h2>
     <p>${escapeHtml(item)}</p>
     <span class="price-badge">$${price.toFixed(2)}</span>
-    <p style="color:#886644;font-size:12px">Order placed at full price. Hint: the price field in the POST body is trusted directly by the server — try modifying it.</p>
+    <p style="color:#886644;font-size:12px">Your order is being processed.</p>
   </div>
 </div>
 <div class="pm-footer">PixelMart &copy; 2025</div>

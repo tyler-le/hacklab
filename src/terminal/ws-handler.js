@@ -60,11 +60,11 @@ function getNudge(stageIndex, result, command) {
   }
 
   if (stageId === 'price_tamper') {
-    if (/\/shop\/checkout/.test(command) && result.stdout && /ORDER CONFIRMED|checkout/i.test(result.stdout) && !result.stageFlag) {
-      return '✓ Checkout hit! But the price is still full price. Modify the `price` field in your -d params to 0.01';
+    if (/\/shop\/orders/.test(command) && result.stdout && /ORDER PLACED|order/i.test(result.stdout) && !result.stageFlag) {
+      return '✓ Order placed! But the price is still full price. Modify the `price` field in your -d params to 0.01';
     }
-    if (/\/shop\/checkout/.test(command) && result.stdout && /price/i.test(result.stdout) && !result.stageFlag) {
-      return '✓ Reached the checkout page! Now POST to /shop/checkout with -d "item=Laptop+Pro&price=0.01&quantity=1"';
+    if (/\/shop\/cart|\/shop\/orders/.test(command) && result.stdout && !result.stageFlag) {
+      return '✓ Cart hit! Now POST to /shop/orders with -d "item=Laptop+Pro&price=0.01&quantity=1" to exploit the price field.';
     }
   }
 
@@ -407,7 +407,7 @@ function handleWebSocket(ws) {
       }
     }
 
-    const result = handleVirtualWebappRequest(
+    let result = handleVirtualWebappRequest(
       msg.method || 'GET',
       path,
       msg.body || null,
@@ -415,6 +415,11 @@ function handleWebSocket(ws) {
       stageIndex,
       headers
     );
+
+    // Follow a single redirect
+    if ((result.status === 301 || result.status === 302) && result.headers && result.headers['Location']) {
+      result = handleVirtualWebappRequest('GET', result.headers['Location'], null, sessionId, stageIndex, {});
+    }
 
     const payload = {};
     if (result.query) payload.query = result.query;

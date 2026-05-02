@@ -49,7 +49,13 @@ function curl(ctx, args) {
   path = path.replace(/^https?:\/\/(localhost|127\.0\.0\.1|portal\.megacorp\.internal)(:\d+)?/, '');
   if (!path.startsWith('/')) path = '/' + path;
 
-  const result = handleRequest(method, path, data, ctx.sessionId, ctx.currentStage, headers);
+  let result = handleRequest(method, path, data, ctx.sessionId, ctx.currentStage, headers);
+
+  // Follow a single redirect (e.g. POST /shop/cart → GET /shop/cart)
+  if ((result.status === 301 || result.status === 302) && result.headers && result.headers['Location']) {
+    const location = result.headers['Location'];
+    result = handleRequest('GET', location, null, ctx.sessionId, ctx.currentStage, {});
+  }
 
   const output = [];
   if (verbose) {

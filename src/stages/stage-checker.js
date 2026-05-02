@@ -131,15 +131,15 @@ Congratulations — you've completed all 5 stages of HackLab!`,
   {
     id: 'price_tamper',
     title: 'Stage 6: Price Manipulation',
-    mission: `<span class="highlight">SCENARIO:</span> MegaCorp just acquired <span class="cmd">PixelMart</span>, a rushed e-commerce startup. Their checkout at <span class="cmd">/shop/checkout</span> trusts the <span class="cmd">price</span> field sent directly from the browser — zero server-side validation.
+    mission: `<span class="highlight">SCENARIO:</span> MegaCorp just acquired <span class="cmd">PixelMart</span>, a rushed e-commerce startup. Their order endpoint at <span class="cmd">POST /shop/orders</span> trusts the <span class="cmd">price</span> field sent directly from the browser — zero server-side validation.
 
-<span class="highlight">OBJECTIVE:</span> Buy a Laptop Pro ($999) for just $0.01 by manipulating the price in your POST body. Find the Transaction ID on the confirmation page and <span class="cmd">submit</span> it.
+<span class="highlight">OBJECTIVE:</span> Buy a Laptop Pro ($999) for just $0.01 by manipulating the price in the POST body. Find the Transaction ID on the confirmation page and <span class="cmd">submit</span> it.
 
-<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop</span> in the Browser tab to see the store. Read <span class="cmd">/var/www/pixelmart/routes.js</span> to see the vulnerability in the checkout handler.`,
+<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop</span> in the Browser tab, add the Laptop Pro to your cart, then intercept the order request using the Request Builder.`,
     hints: [
-      'Read the source: cat /var/www/pixelmart/routes.js — the checkout route reads price directly from req.body without validation.',
-      'Visit /shop/checkout?item=Laptop+Pro&price=999 in the Browser tab to see the order form. Notice the price field is editable.',
-      'Exploit: curl -X POST http://portal.megacorp.internal/shop/checkout -d "item=Laptop+Pro&price=0.01&quantity=1"',
+      'Read the source: cat /var/www/pixelmart/routes.js — the /shop/orders route reads price directly from req.body without validation.',
+      'Add the Laptop Pro to your cart at /shop, then open the Request Builder tab. Send POST /shop/orders with the item and price fields.',
+      'Exploit: curl -X POST http://portal.megacorp.internal/shop/orders -d "item=Laptop+Pro&price=0.01&quantity=1"',
     ],
     flagPrompt: 'Enter the Transaction ID from the order confirmation...',
     success: {
