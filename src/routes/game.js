@@ -161,10 +161,6 @@ router.post('/reset', (req, res) => {
 
 // POST /api/checkout — create a Stripe Checkout session
 router.post('/checkout', async (req, res) => {
-  // HOTFIX: purchases temporarily disabled while persistent session storage is being implemented.
-  // Remove this block once the fix is deployed.
-  return res.status(503).json({ error: 'Purchases are temporarily unavailable. Check back soon!' });
-
   if (!process.env.STRIPE_SECRET_KEY) {
     return res.status(503).json({ error: 'Payment not configured' });
   }

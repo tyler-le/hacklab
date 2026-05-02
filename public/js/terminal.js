@@ -10,12 +10,19 @@ let lastBrowserHtml = '';
 let isReconnecting = false;
 let reconnectAttempts = 0;
 
+function loadSavedProgress() {
+  try {
+    const raw = localStorage.getItem('hacklab-progress');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${protocol}//${location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'init', sessionId }));
+    ws.send(JSON.stringify({ type: 'init', sessionId, savedProgress: loadSavedProgress() }));
   };
 
   ws.onmessage = (event) => {
@@ -72,6 +79,11 @@ function onGameInit(msg) {
   stageCount = msg.stageCount;
   advancedUnlocked = msg.advancedUnlocked || false;
   extraLevels = msg.extraLevels || false;
+
+  // Persist server-authorised progress to localStorage
+  saveProgress();
+  // Restore per-stage UI history from localStorage
+  loadUIState();
 
   // Show Request Builder tab only when extra levels are enabled server-side
   const rbTab = document.getElementById('bpTabRequest');
@@ -217,6 +229,7 @@ function onCommandResult(msg) {
     if (msg.completedStages) {
       completedStages = new Set(msg.completedStages);
     }
+    saveProgress();
     renderStageDots();
     showSuccess(msg.stageSuccess);
 

@@ -59,6 +59,48 @@ function getCurrentStageId() {
   return STAGE_IDS[currentStage] || 'intro';
 }
 
+// ========== PROGRESS PERSISTENCE ==========
+function loadSavedProgress() {
+  try {
+    const raw = localStorage.getItem('hacklab-progress');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveProgress() {
+  try {
+    const existing = loadSavedProgress();
+    localStorage.setItem('hacklab-progress', JSON.stringify({
+      completedStages: [...completedStages],
+      currentStage,
+      stripeSessionId: existing.stripeSessionId || null,
+    }));
+  } catch {}
+}
+
+function saveUIState() {
+  try {
+    localStorage.setItem('hacklab-ui', JSON.stringify({
+      stageTerminalHistory,
+      stageQueryHistory,
+      stageBrowserHistory,
+      stageActiveTab,
+    }));
+  } catch {}
+}
+
+function loadUIState() {
+  try {
+    const raw = localStorage.getItem('hacklab-ui');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    Object.assign(stageTerminalHistory, data.stageTerminalHistory || {});
+    Object.assign(stageQueryHistory, data.stageQueryHistory || {});
+    Object.assign(stageBrowserHistory, data.stageBrowserHistory || {});
+    Object.assign(stageActiveTab, data.stageActiveTab || {});
+  } catch {}
+}
+
 // ========== STAGE STATE SAVE/RESTORE ==========
 function saveStageState(idx) {
   stageTerminalHistory[idx] = document.getElementById('terminalOutput').innerHTML;
@@ -78,6 +120,7 @@ function saveStageState(idx) {
   if (activeTab) {
     stageActiveTab[idx] = activeTab.getAttribute('data-tab');
   }
+  saveUIState();
 }
 
 function restoreStageState(idx, fallbackTitle) {
@@ -263,6 +306,7 @@ function jumpToStage(idx) {
     .then(data => {
       currentStage = data.currentStage;
       completedStages = new Set(data.completedStages);
+      saveProgress();
       renderStageDots();
       document.getElementById('missionText').innerHTML = data.stage.mission;
       const fi = document.getElementById('flagInput');
@@ -420,14 +464,18 @@ async function startUnlock() {
         });
         const d = await r.json();
         if (d.unlocked && window.opener) {
-          window.opener.postMessage({ type: 'hacklab-payment-unlocked', stageCount: d.stageCount }, window.location.origin);
+          window.opener.postMessage({ type: 'hacklab-payment-unlocked', stageCount: d.stageCount, stripeSessionId: sid }, window.location.origin);
           window.close();
           return;
         }
         // Fallback: no opener (e.g. user copied the URL) — handle inline
         if (d.unlocked) {
+          const p = loadSavedProgress();
+          p.stripeSessionId = sid;
+          localStorage.setItem('hacklab-progress', JSON.stringify(p));
           advancedUnlocked = true;
           if (d.stageCount) stageCount = d.stageCount;
+          saveProgress();
         }
       } catch (e) { /* silently fail */ }
     }
@@ -442,6 +490,12 @@ window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'hacklab-payment-unlocked') {
     advancedUnlocked = true;
     if (e.data.stageCount) stageCount = e.data.stageCount;
+    if (e.data.stripeSessionId) {
+      const p = loadSavedProgress();
+      p.stripeSessionId = e.data.stripeSessionId;
+      localStorage.setItem('hacklab-progress', JSON.stringify(p));
+    }
+    saveProgress();
     renderStageDots();
     showUnlockSuccess();
   }

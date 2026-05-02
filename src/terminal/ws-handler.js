@@ -106,6 +106,19 @@ function getNudge(stageIndex, result, command) {
   return null;
 }
 
+function stageCountFor(state) {
+  return state.advancedUnlocked ? getStageCount() : PUBLIC_STAGE_COUNT;
+}
+
+async function restoreStripeUnlock(stripeSessionId, state) {
+  if (!process.env.STRIPE_SECRET_KEY) return;
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
+    if (session.payment_status === 'paid') state.advancedUnlocked = true;
+  } catch { /* Stripe unavailable — don't unlock */ }
+}
+
 function handleWebSocket(ws) {
   let sessionId = null;
   let shell = null;
@@ -150,8 +163,9 @@ function handleWebSocket(ws) {
     ws.send(JSON.stringify({ type: 'result', ...payload }));
   }
 
-  function handleInit(msg) {
+  async function handleInit(msg) {
     const devUnlock = process.env.DEV_UNLOCK === '1';
+    const savedProgress = msg.savedProgress || {};
 
     if (msg.sessionId) {
       const db = sessionManager.getSession(msg.sessionId);
@@ -159,8 +173,11 @@ function handleWebSocket(ws) {
         sessionId = msg.sessionId;
         const state = getGameState(sessionId);
         if (devUnlock) state.advancedUnlocked = true;
-        // Clamp current stage to public count in case flag was toggled
-        if (state.currentStage >= PUBLIC_STAGE_COUNT) state.currentStage = PUBLIC_STAGE_COUNT - 1;
+        if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
+          await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+        }
+        const count = stageCountFor(state);
+        if (state.currentStage >= count) state.currentStage = count - 1;
         const stage = getStage(state.currentStage);
         shell = useRealShell
           ? new RealShellSession(sessionId, state.currentStage)
@@ -171,7 +188,7 @@ function handleWebSocket(ws) {
           sessionId,
           currentStage: state.currentStage,
           completedStages: [...state.completedStages],
-          stageCount: PUBLIC_STAGE_COUNT,
+          stageCount: count,
           extraLevels: EXTRA_LEVELS,
           advancedUnlocked: state.advancedUnlocked || false,
           stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
@@ -182,21 +199,38 @@ function handleWebSocket(ws) {
       }
     }
 
-    // Create new session
+    // Create new session — restore progress from client savedProgress
     sessionId = sessionManager.createSession();
     const state = getGameState(sessionId);
     if (devUnlock) state.advancedUnlocked = true;
-    const stage = getStage(0);
+
+    // Restore purchase first so stageCountFor is accurate
+    if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
+      await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+    }
+
+    // Restore completed stages and current stage
+    const maxStage = stageCountFor(state);
+    if (Array.isArray(savedProgress.completedStages)) {
+      savedProgress.completedStages
+        .filter(i => Number.isInteger(i) && i >= 0 && i < maxStage)
+        .forEach(i => state.completedStages.add(i));
+    }
+    if (Number.isInteger(savedProgress.currentStage) && savedProgress.currentStage >= 0) {
+      state.currentStage = Math.min(savedProgress.currentStage, maxStage - 1);
+    }
+
+    const stage = getStage(state.currentStage);
     shell = useRealShell
-      ? new RealShellSession(sessionId, 0)
-      : new ShellSession(sessionId, 0);
+      ? new RealShellSession(sessionId, state.currentStage)
+      : new ShellSession(sessionId, state.currentStage);
 
     ws.send(JSON.stringify({
       type: 'init',
       sessionId,
-      currentStage: 0,
-      completedStages: [],
-      stageCount: PUBLIC_STAGE_COUNT,
+      currentStage: state.currentStage,
+      completedStages: [...state.completedStages],
+      stageCount: stageCountFor(state),
       extraLevels: EXTRA_LEVELS,
       advancedUnlocked: state.advancedUnlocked || false,
       stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
