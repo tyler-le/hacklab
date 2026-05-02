@@ -157,7 +157,7 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
     title: 'Stage 7: Directory Traversal',
     mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=laptop.jpg</span> — but the file parameter is never validated against the intended directory.
 
-<span class="highlight">OBJECTIVE:</span> Read the admin credentials file. The flag is inside it.
+<span class="highlight">OBJECTIVE:</span> Read <span class="cmd">/var/pixelmart/admin/credentials.json</span>. The flag is inside it.
 
 <span class="highlight">TIP:</span> Browse to <span class="cmd">/shop/catalog</span> and read the source code to understand how images are served.`,
     hints: [
