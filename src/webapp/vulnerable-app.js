@@ -2034,7 +2034,6 @@ function handleShopCatalog(stageIndex) {
   const cards = products.map(p => `
     <div class="pm-product">
       <img class="pm-product-img" src="/shop/image?file=${encodeURIComponent(p.file)}" alt="${escapeHtml(p.name)}" onerror="this.style.display='none'" />
-      <div style="font-size:12px;color:#664400;padding:8px;font-family:monospace">/shop/image?file=${escapeHtml(p.file)}</div>
       <div class="pm-product-body">
         <div class="pm-product-name">${escapeHtml(p.name)}</div>
         <div class="pm-product-price">$${p.price}</div>
@@ -2065,9 +2064,6 @@ function handleShopCatalog(stageIndex) {
   <span class="pm-badge">PRODUCT CATALOG</span>
 </div>
 <div class="pm-main">
-  <div class="pm-info">
-    Images are served from: <code>/var/pixelmart/images/</code> via <code>/shop/image?file=FILENAME</code>
-  </div>
   <div class="pm-grid">${cards}</div>
 </div>
 <div class="pm-footer">PixelMart &copy; 2025</div>

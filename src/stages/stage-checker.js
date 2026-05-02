@@ -155,15 +155,15 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
   {
     id: 'path_traversal',
     title: 'Stage 7: Directory Traversal',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart's image server at <span class="cmd">/shop/image?file=laptop.jpg</span> serves product images from a restricted directory — but the file path is never validated.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=</span> — but the file parameter is never validated against the intended directory.
 
-<span class="highlight">OBJECTIVE:</span> Escape the image directory and read the admin credentials file. The flag is inside it.
+<span class="highlight">OBJECTIVE:</span> Read the admin credentials file. The flag is inside it.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/catalog</span> in the Browser tab to see the image URL pattern.`,
+<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop/catalog</span> and read the source code to understand how images are served.`,
     hints: [
-      'Look at how /shop/image?file= works in /shop/catalog. Read cat /var/www/pixelmart/routes.js to see how the path is constructed.',
-      'The image base directory is /var/pixelmart/images/. Use ../ sequences in the file param to walk up to a sibling directory.',
-      'You need to reach /var/pixelmart/admin/credentials.json. Count how many ../ steps it takes from /var/pixelmart/images/.',
+      'cat /var/www/pixelmart/routes.js — look at how the image path is constructed. Is the resolved path ever validated?',
+      'The file parameter is appended to a base directory. Use ../ sequences to walk up and out of it.',
+      'Once you know the base directory, figure out what directory sits next to it that might contain sensitive files.',
     ],
     flagPrompt: 'Enter the flag from the admin credentials file...',
     success: {
