@@ -155,15 +155,15 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
   {
     id: 'path_traversal',
     title: 'Stage 7: Directory Traversal',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=laptop.jpg</span>. The filename is appended to a base directory on disk — and the server never checks if the resulting path escapes that directory.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=laptop.jpg</span>. The filename is appended to a base directory on disk — and the server never checks if the resulting path stays within it.
 
-<span class="highlight">OBJECTIVE:</span> Use <span class="cmd">../</span> sequences in the <span class="cmd">file</span> parameter to walk up the directory tree and read <span class="cmd">../admin/credentials.json</span>. The flag is inside it.
+<span class="highlight">OBJECTIVE:</span> Read <span class="cmd">../admin/credentials.json</span>. The flag is inside it.
 
-<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop/catalog</span> and read the source code to understand how the path is constructed.`,
+<span class="highlight">TIP:</span> Read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to understand how the file path is constructed.`,
     hints: [
-      'cat /var/www/pixelmart/routes.js — look at how the image path is constructed. Is the resolved path ever validated?',
-      'The file parameter is appended to a base directory. Use ../ sequences to walk up and out of it.',
-      'Once you know the base directory, figure out what directory sits next to it that might contain sensitive files.',
+      'Look at how the image path is built in routes.js. What happens if the file parameter contains special directory characters?',
+      'In Unix, .. means "go up one directory". If the server appends your input to a base path without validation, you can navigate outside it.',
+      'Figure out the base directory from the source code, then work out how many ../ steps it takes to reach the admin folder next to it.',
     ],
     flagPrompt: 'Enter the flag from the admin credentials file...',
     success: {
@@ -179,15 +179,15 @@ DEFENSE: After joining paths with path.join(), always call path.resolve() and ve
   {
     id: 'file_upload',
     title: 'Stage 8: File Upload Bypass',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart's seller portal at <span class="cmd">/shop/upload</span> lets sellers upload product images. The server blocks <span class="cmd">.php</span>, <span class="cmd">.js</span>, and <span class="cmd">.sh</span> extensions — but the check is case-sensitive.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's seller portal at <span class="cmd">/shop/upload</span> lets sellers upload product images. The server has a filter to block dangerous file types — but it was implemented hastily.
 
-<span class="highlight">OBJECTIVE:</span> Upload a file with a <span class="cmd">.PHP</span> extension (uppercase) to bypass the filter. The server will execute it and show you the flag.
+<span class="highlight">OBJECTIVE:</span> Upload a server-side script file to achieve code execution and retrieve the flag.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/upload</span> in the Browser tab to see the upload form. Read <span class="cmd">routes.js</span> to understand exactly what the filter checks.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/upload</span> and read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to understand how the filter works.`,
     hints: [
-      'Read the source: cat /var/www/pixelmart/routes.js — the denylist check uses endsWith(".php") which is case-sensitive.',
-      'Visit /shop/upload in the Browser tab and try uploading shell.php — it gets blocked. Now try shell.PHP.',
-      'Exploit: curl -X POST http://portal.megacorp.internal/shop/upload -d "filename=shell.PHP&content=test"',
+      'Read routes.js and look at how the upload filter checks the filename. Is the comparison airtight?',
+      'The filter uses a denylist of dangerous extensions. Think about edge cases — are all variations of those extensions covered?',
+      'Most web servers treat .php and .PHP as the same file type. Does the filter?',
     ],
     flagPrompt: 'Enter the flag from the upload execution output...',
     success: {
@@ -203,15 +203,15 @@ DEFENSE: Lowercase the entire filename before extension checking. Use an allowli
   {
     id: 'mass_assign',
     title: 'Stage 9: Mass Assignment',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart's registration API at <span class="cmd">/shop/register</span> uses <span class="cmd">Object.assign({}, req.body)</span> — every POST field is blindly copied to the user object, including <span class="cmd">role</span>.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's registration endpoint at <span class="cmd">/shop/register</span> has a flaw in how it processes incoming data — it copies more than it should from the request.
 
-<span class="highlight">OBJECTIVE:</span> Register with <span class="cmd">role=admin</span> in your POST body to get admin access. Then visit <span class="cmd">/shop/admin</span> to find the flag.
+<span class="highlight">OBJECTIVE:</span> Create an account with admin privileges. Then visit <span class="cmd">/shop/admin</span> to find the flag.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> in the Browser tab to see the form. Read <span class="cmd">routes.js</span> to spot the dangerous Object.assign call.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> and read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to understand how account data is handled.`,
     hints: [
-      'Read the source: cat /var/www/pixelmart/routes.js — Object.assign(user, req.body) copies all POST fields including hidden ones like role.',
-      'Visit /shop/register in the Browser tab. The form has username, password, email — but you can send extra fields via curl.',
-      'Exploit: curl -X POST http://portal.megacorp.internal/shop/register -d "username=hacker&password=test&email=h@x.com&role=admin"',
+      'Read routes.js and look at how the user object is created from the request body. Is it selective about what it copies?',
+      'The registration form only shows some fields — but the server processes everything you send. What fields might exist on a user object that the form does not expose?',
+      'Try adding an extra field to your POST request that controls your account privilege level.',
     ],
     flagPrompt: 'Enter the Admin Access Token from the admin panel...',
     success: {
@@ -227,15 +227,15 @@ DEFENSE: Explicitly whitelist allowed fields when creating objects from user inp
   {
     id: 'reset_poison',
     title: 'Stage 10: Password Reset Poisoning',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart's password reset at <span class="cmd">/shop/reset</span> builds the reset URL using the HTTP <span class="cmd">Host</span> header from the request. An attacker can inject a fake host to poison the reset link.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart's password reset at <span class="cmd">/shop/reset</span> sends users a link to recover their account. The link is built dynamically from the incoming request — and one of the inputs is attacker-controlled.
 
-<span class="highlight">OBJECTIVE:</span> Send a reset request for <span class="cmd">admin@pixelmart.com</span> with a spoofed <span class="cmd">Host: evil.com</span> header. The email preview will show the poisoned link — find the flag there.
+<span class="highlight">OBJECTIVE:</span> Poison the reset link for <span class="cmd">admin@pixelmart.com</span> so it points to your server. The flag is in the email preview.
 
-<span class="highlight">TIP:</span> Use <span class="cmd">-H "Host: evil.com"</span> in curl. Read <span class="cmd">routes.js</span> to see how the reset URL is constructed.`,
+<span class="highlight">TIP:</span> Read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to see how the reset URL is constructed.`,
     hints: [
-      'Read the source: cat /var/www/pixelmart/routes.js — the reset URL is built with req.headers.host, which the attacker controls.',
-      'Visit /shop/reset in the Browser tab to see the reset form. The email preview panel shows exactly what would be emailed.',
-      'Exploit: curl -X POST http://portal.megacorp.internal/shop/reset -d "email=admin@pixelmart.com" -H "Host: evil.com"',
+      'Read routes.js and look at what data is used to build the reset URL. Is any of it attacker-controlled?',
+      'HTTP requests contain headers that tell the server where the request came from. One of them is used to build the reset link — and you can set it to anything.',
+      'Use curl with the -H flag to override a request header. Which header controls the hostname in the URL?',
     ],
     flagPrompt: 'Enter the Reset Token from the poisoned email preview...',
     success: {

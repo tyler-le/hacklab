@@ -2154,7 +2154,7 @@ pre{background:#0a0a06;border:1px solid #664400;border-radius:8px;padding:16px;c
     return {
       status: 404,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'File not found', path: resolvedStr, hint: 'Keep trying — the admin credentials are at /var/pixelmart/admin/credentials.json' }),
+      body: JSON.stringify({ error: 'File not found', path: resolvedStr }),
     };
   }
 
@@ -2187,16 +2187,11 @@ function handleShopUploadPage(stageIndex) {
   <div class="pm-card">
     <h2>Upload Product Image</h2>
     <p>Upload an image for your product listing. Only image files are allowed.</p>
-    <div class="filter-note">
-      <strong>Allowed:</strong> .jpg, .png only<br>
-      <strong>Blocked:</strong> .php, .js, .sh<br>
-      <span style="color:#664400">Server check: <code style="color:#ffbb44">if (filename.endsWith('.php') || filename.endsWith('.js') || filename.endsWith('.sh'))</code></span>
-    </div>
     <form method="POST" action="/shop/upload" autocomplete="off">
       <label>Filename</label>
       <input name="filename" placeholder="e.g. product_photo.jpg" autocomplete="off" />
       <label>File Content (text)</label>
-      <input name="content" placeholder="e.g. image data or script" autocomplete="off" />
+      <input name="content" placeholder="File contents" autocomplete="off" />
       <button type="submit">Upload Product Image</button>
     </form>
   </div>
@@ -2233,9 +2228,7 @@ function handleShopUpload(postData, stageIndex) {
 <div class="pm-main">
   <div class="pm-card">
     <div class="pm-err">403 &mdash; File type not allowed: ${escapeHtml(filename)}</div>
-    <p style="color:#886644;font-size:13px">The server rejected your upload. The extension filter blocked it.</p>
-    <p style="color:#664400;font-size:12px;margin-top:12px;font-family:monospace">Check: filename.endsWith('.php') returned true</p>
-    <p style="color:#664400;font-size:12px;margin-top:8px">Hint: Is this check case-sensitive?</p>
+    <p style="color:#886644;font-size:13px;margin-top:8px">That file type is not permitted on this platform.</p>
   </div>
 </div>
 </body>
@@ -2276,7 +2269,6 @@ body{font-family:ui-monospace,'Cascadia Code',monospace;background:#0a0a06;color
 </div>
 <div class="terminal">
   <div class="prompt">$ # File uploaded to /uploads/${escapeHtml(filename)}</div>
-  <div class="prompt">$ # Filter bypass: .PHP does not match endsWith('.php')</div>
   <div class="prompt">$ id</div>
   <div class="output">uid=33(www-data) gid=33(www-data) groups=33(www-data)</div>
   <div class="prompt">$ cat /etc/pixelmart/secrets.txt</div>
@@ -2316,7 +2308,7 @@ STRIPE_KEY=sk_live_pm_4eC39HqLyjWDarjtT1</div>
   <div class="pm-card">
     <h2>Upload Accepted</h2>
     <p style="color:#886644;margin-bottom:12px">File saved: <strong style="color:#ffbb44">${escapeHtml(filename)}</strong></p>
-    <p style="color:#664400;font-size:12px">This was a safe filename. Try uploading a script file — the check is case-sensitive.</p>
+    <p style="color:#664400;font-size:12px">File stored at /uploads/${escapeHtml(filename)}</p>
   </div>
 </div>
 </body>
@@ -2353,7 +2345,6 @@ function handleShopRegisterPage(stageIndex) {
       <input name="email" type="email" placeholder="your@email.com" autocomplete="off" />
       <button type="submit">Create Account</button>
     </form>
-    <div class="pm-note" style="margin-top:16px">Tip: the API uses Object.assign({}, req.body) — any POST field gets copied to the user object.</div>
   </div>
 </div>
 <div class="pm-footer">PixelMart &copy; 2025</div>
@@ -2396,8 +2387,7 @@ function handleShopRegister(postData, stageIndex) {
 <div class="pm-main">
   <div class="pm-card">
     <div class="admin-banner">
-      <h2>Mass Assignment Succeeded!</h2>
-      <p style="color:#886644;margin-top:8px;font-size:13px">role=admin was copied from your POST body via Object.assign()</p>
+      <h2>Admin Account Created</h2>
     </div>
     <div class="user-row"><span style="color:#886644">Username</span><span style="color:#ffbb44">${escapeHtml(username)}</span></div>
     <div class="user-row"><span style="color:#886644">Email</span><span style="color:#ffbb44">${escapeHtml(email)}</span></div>
@@ -2435,7 +2425,6 @@ function handleShopRegister(postData, stageIndex) {
   <div class="pm-card">
     <h2>Account Created!</h2>
     <p>Welcome, <strong style="color:#ffbb44">${escapeHtml(username)}</strong>! Your account role is: <strong style="color:#886644">user</strong></p>
-    <div class="pm-note" style="margin-top:16px">Not the role you wanted? The API uses Object.assign(user, req.body). Any field in the POST body is assigned to the user object &mdash; including role.</div>
   </div>
 </div>
 </body>
@@ -2527,7 +2516,6 @@ function handleShopResetPage(stageIndex) {
       <input name="email" type="email" placeholder="admin@pixelmart.com" autocomplete="off" />
       <button type="submit">Send Reset Link</button>
     </form>
-    <div class="pm-note" style="margin-top:16px">Tip: The reset URL is built using the Host header from the request. Try: curl -X POST ... -H "Host: evil.com"</div>
   </div>
 </div>
 <div class="pm-footer">PixelMart &copy; 2025</div>
