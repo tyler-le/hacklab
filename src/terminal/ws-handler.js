@@ -110,6 +110,18 @@ function stageCountFor(state) {
   return state.advancedUnlocked ? getStageCount() : PUBLIC_STAGE_COUNT;
 }
 
+function applyProgressFromClient(state, savedProgress) {
+  const maxStage = stageCountFor(state);
+  if (Array.isArray(savedProgress.completedStages)) {
+    savedProgress.completedStages
+      .filter(i => Number.isInteger(i) && i >= 0 && i < maxStage)
+      .forEach(i => state.completedStages.add(i));
+  }
+  if (Number.isInteger(savedProgress.currentStage) && savedProgress.currentStage >= 0) {
+    state.currentStage = Math.min(savedProgress.currentStage, maxStage - 1);
+  }
+}
+
 async function restoreStripeUnlock(stripeSessionId, state) {
   if (!process.env.STRIPE_SECRET_KEY) return;
   try {
@@ -176,6 +188,11 @@ function handleWebSocket(ws) {
         if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
           await restoreStripeUnlock(savedProgress.stripeSessionId, state);
         }
+        // In-memory state is empty after a server restart even if the DB file
+        // still exists — restore from client savedProgress in that case.
+        if (state.completedStages.size === 0) {
+          applyProgressFromClient(state, savedProgress);
+        }
         const count = stageCountFor(state);
         if (state.currentStage >= count) state.currentStage = count - 1;
         const stage = getStage(state.currentStage);
@@ -209,16 +226,7 @@ function handleWebSocket(ws) {
       await restoreStripeUnlock(savedProgress.stripeSessionId, state);
     }
 
-    // Restore completed stages and current stage
-    const maxStage = stageCountFor(state);
-    if (Array.isArray(savedProgress.completedStages)) {
-      savedProgress.completedStages
-        .filter(i => Number.isInteger(i) && i >= 0 && i < maxStage)
-        .forEach(i => state.completedStages.add(i));
-    }
-    if (Number.isInteger(savedProgress.currentStage) && savedProgress.currentStage >= 0) {
-      state.currentStage = Math.min(savedProgress.currentStage, maxStage - 1);
-    }
+    applyProgressFromClient(state, savedProgress);
 
     const stage = getStage(state.currentStage);
     shell = useRealShell

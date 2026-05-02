@@ -27,7 +27,8 @@ function stageCountFor(state) {
   return state.advancedUnlocked ? getStageCount() : FREE_STAGE_COUNT;
 }
 
-function applyProgress(state, savedProgress) {
+// Mirror of applyProgressFromClient in ws-handler.js
+function applyProgressFromClient(state, savedProgress) {
   const maxStage = stageCountFor(state);
   if (Array.isArray(savedProgress.completedStages)) {
     savedProgress.completedStages
@@ -38,6 +39,7 @@ function applyProgress(state, savedProgress) {
     state.currentStage = Math.min(savedProgress.currentStage, maxStage - 1);
   }
 }
+const applyProgress = applyProgressFromClient;
 
 // ─── stageCountFor ────────────────────────────────────────────────────────────
 describe('stageCountFor', () => {
@@ -116,5 +118,36 @@ describe('applyProgress — currentStage', () => {
     const state = makeState({ currentStage: 2 });
     applyProgress(state, {});
     expect(state.currentStage).toBe(2); // unchanged
+  });
+});
+
+// ─── Server restart scenario ───────────────────────────────────────────────────
+// Simulates: session DB file still exists on disk but in-memory state is
+// fresh (empty) because the server restarted. Client sends savedProgress.
+describe('server restart scenario — existing session, empty in-memory state', () => {
+  it('restores completedStages when in-memory state is empty on reconnect', () => {
+    const state = makeState(); // fresh in-memory state after restart
+    expect(state.completedStages.size).toBe(0);
+
+    // Client sends progress it saved before the restart
+    applyProgressFromClient(state, { completedStages: [0, 1], currentStage: 1 });
+
+    expect(state.completedStages.has(0)).toBe(true);
+    expect(state.completedStages.has(1)).toBe(true);
+    expect(state.currentStage).toBe(1);
+  });
+
+  it('does not overwrite non-empty in-memory state', () => {
+    // If state has data (e.g. same server session), don't overwrite
+    const state = makeState({ currentStage: 3 });
+    state.completedStages.add(0);
+    state.completedStages.add(1);
+    state.completedStages.add(2);
+
+    // The guard in ws-handler only calls applyProgressFromClient when
+    // completedStages.size === 0 — so this scenario never reaches it.
+    // Verify that applying to a non-empty state only adds, never removes.
+    applyProgressFromClient(state, { completedStages: [0], currentStage: 0 });
+    expect(state.completedStages.size).toBe(3); // still has all three
   });
 });
