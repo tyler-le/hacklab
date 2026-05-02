@@ -7,6 +7,8 @@ let historyIndex = -1;
 let currentPrompt = 'hacklab@megacorp:/var/www/megacorp$ ';
 let sqliteMode = false;
 let lastBrowserHtml = '';
+let isReconnecting = false;
+let reconnectAttempts = 0;
 
 function connectWebSocket() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -37,9 +39,25 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
-    printTerminal('<span class="err">Connection lost. Reconnecting...</span>');
-    setTimeout(connectWebSocket, 2000);
+    if (!isReconnecting) {
+      isReconnecting = true;
+      setConnectionStatus('reconnecting');
+    }
+    const delay = Math.min(1000 * 2 ** reconnectAttempts, 10000);
+    reconnectAttempts++;
+    setTimeout(connectWebSocket, delay);
   };
+}
+
+function setConnectionStatus(state) {
+  const el = document.getElementById('connStatus');
+  if (!el) return;
+  if (state === 'reconnecting') {
+    el.textContent = '⟳ Reconnecting...';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function sendCommand(command) {
@@ -69,20 +87,28 @@ function onGameInit(msg) {
   document.getElementById('missionText').innerHTML = msg.stage.mission;
   const fi = document.getElementById('flagInput'); if (fi && msg.stage.flagPrompt) fi.placeholder = msg.stage.flagPrompt;
 
-  printTerminal('<span class="sys">HackLab initialized.</span>');
-  printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');
-  printTerminal('<span class="sys">Shell access as: hacklab</span>');
-  printTerminal('');
-  printTerminal(`<span class="warn">═══ ${msg.stage.title.toUpperCase()} ═══</span>`);
-  printTerminal('');
-  if (msg.currentStage === 0) {
-    printTerminal('<span class="info">Start by exploring the server. Type <span class="cmd">ls</span> and press Enter to list files.</span>');
-    printTerminal('<span class="info">Then try <span class="cmd">cat routes.js</span> to read the source code.</span>');
-    printTerminal('<span class="info">Use <span class="cmd">hint</span> if you get stuck, or <span class="cmd">help</span> for all commands.</span>');
+  if (isReconnecting) {
+    isReconnecting = false;
+    reconnectAttempts = 0;
+    setConnectionStatus('connected');
+    printTerminal('<span class="sys">Reconnected.</span>');
+    printTerminal('');
   } else {
-    printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands, or <span class="cmd">hint</span> for a hint.</span>');
+    printTerminal('<span class="sys">HackLab initialized.</span>');
+    printTerminal('<span class="sys">Target: MegaCorp Employee Portal (megacorp-web-01)</span>');
+    printTerminal('<span class="sys">Shell access as: hacklab</span>');
+    printTerminal('');
+    printTerminal(`<span class="warn">═══ ${msg.stage.title.toUpperCase()} ═══</span>`);
+    printTerminal('');
+    if (msg.currentStage === 0) {
+      printTerminal('<span class="info">Start by exploring the server. Type <span class="cmd">ls</span> and press Enter to list files.</span>');
+      printTerminal('<span class="info">Then try <span class="cmd">cat routes.js</span> to read the source code.</span>');
+      printTerminal('<span class="info">Use <span class="cmd">hint</span> if you get stuck, or <span class="cmd">help</span> for all commands.</span>');
+    } else {
+      printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands, or <span class="cmd">hint</span> for a hint.</span>');
+    }
+    printTerminal('');
   }
-  printTerminal('');
 
   // Show paywall when landing page "Unlock" button sends user here
   if (new URLSearchParams(location.search).get('unlock') === '1') {
