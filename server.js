@@ -7,7 +7,7 @@ const sessionManager = require('./src/db/session-manager');
 const { handleWebSocket } = require('./src/terminal/ws-handler');
 const gameRoutes = require('./src/routes/game');
 const { getGameState } = require('./src/routes/game');
-const { handleRequest: handleWebappRequest } = require('./src/webapp/vulnerable-app');
+const { handleRequest: handleWebappRequest, PRODUCT_SVGS } = require('./src/webapp/vulnerable-app');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,8 +30,10 @@ app.use('/api', gameRoutes);
 // Proxies requests to the vulnerable app so curl and the iframe see the same responses.
 // Serve PixelMart product images directly so <img> tags inside iframes resolve correctly
 app.get('/shop/image', (req, res) => {
-  const result = handleWebappRequest('GET', '/shop/image' + (req._parsedUrl.search || ''), null, 'static', 5, {});
-  res.status(result.status).set(result.headers || {}).send(result.body);
+  const file = (req.query.file || '').replace(/^.*\//, ''); // basename only, no traversal
+  const svg = PRODUCT_SVGS[file];
+  if (svg) return res.set('Content-Type', 'image/svg+xml').send(svg);
+  res.status(404).send('Not found');
 });
 
 app.all('/webapp/*', (req, res) => {
