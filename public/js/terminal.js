@@ -83,6 +83,12 @@ function onGameInit(msg) {
     printTerminal('<span class="info">Type <span class="cmd">help</span> for available commands, or <span class="cmd">hint</span> for a hint.</span>');
   }
   printTerminal('');
+
+  // Show paywall when landing page "Unlock" button sends user here
+  if (new URLSearchParams(location.search).get('unlock') === '1') {
+    history.replaceState({}, '', '/play');
+    document.getElementById('paywallOverlay').classList.add('visible');
+  }
 }
 
 function onCommandResult(msg) {

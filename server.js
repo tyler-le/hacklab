@@ -21,6 +21,19 @@ sessionManager.createTemplate();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Landing page at root, game at /play — must come before express.static
+app.get('/', (req, res) => {
+  // Stripe payment return lands here; send the game page so the IIFE can verify
+  if (req.query.payment === 'success') {
+    return res.sendFile(path.join(__dirname, 'public', 'play.html'));
+  }
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+app.get('/play', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'play.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Game API routes (session management, stage switching, hints)

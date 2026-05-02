@@ -77,6 +77,17 @@ Each player gets an isolated SQLite database (copied from `sessions/_template.db
 
 `npm start` — production start
 `npm run dev` — development with auto-reload
+`npm test` — run all unit + integration tests
+`npm run test:unit` — unit tests only
+`npm run test:integration` — integration tests only
+`npx playwright test tests/e2e` — E2E tests (requires server running on port 3000)
+
+## Testing Policy
+
+- **Always run tests after making changes.** Run `npm test` before considering any task complete.
+- **Keep tests in sync with requirements.** When a stage, route, or game mechanic changes, update the corresponding tests in `tests/unit/`, `tests/integration/`, or `tests/e2e/` immediately — don't leave tests that pass against stale behavior.
+- **New features need new tests.** Adding a stage, a route, or a paywall rule means adding test coverage for the happy path and the primary sad paths.
+- Test files mirror the source structure: unit tests in `tests/unit/`, integration tests in `tests/integration/`, E2E in `tests/e2e/`.
 
 ## Deployment
 

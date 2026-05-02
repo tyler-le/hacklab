@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackLab — Play</title>
+<meta name="description" content="HackLab — an interactive browser game where you learn web security by exploiting real vulnerabilities. SQL injection, XSS, command injection and more.">
+<link rel="canonical" href="https://hacklab.up.railway.app/play">
+<meta property="og:title" content="HackLab — Learn Web Hacking by Doing It">
+<meta property="og:description" content="Exploit SQL injection, XSS, command injection and more in a live terminal simulator. Free browser game, no setup required.">
+<meta property="og:url" content="https://hacklab.up.railway.app/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Top bar -->
+  <div class="header">
+    <div class="logo">HACK<span>LAB</span></div>
+    <div class="controls">
+      <a class="coffee-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+      <button class="hint-btn" onclick="requestHint()">HINT</button>
+      <div class="stage-indicator" id="stageIndicator"></div>
+    </div>
+  </div>
+
+  <!-- Mission briefing strip -->
+  <div class="mission-strip panel">
+    <div class="panel-title">Mission Briefing</div>
+    <div class="mission-text" id="missionText"></div>
+    <div class="flag-row" id="flagRow">
+      <span class="flag-label">SUBMIT SECRET:</span>
+      <input type="text" id="flagInput" class="flag-input"
+             placeholder="Paste the secret you found..."
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter')submitFlag()">
+      <button class="flag-btn" onclick="submitFlag()">Submit</button>
+    </div>
+  </div>
+
+  <!-- Main workspace -->
+  <div class="main-split">
+
+    <!-- Left: SQL monitor + terminal -->
+    <div class="left-col">
+      <div class="panel query-panel">
+        <div class="panel-title" id="monitorTitle">SQL Query Monitor</div>
+        <div class="query-display" id="queryDisplay">
+          <div class="editor-topbar"><span class="tab">query.sql</span><span>HackLab Monitor</span></div>
+          <div class="editor-body">
+            <div class="line-numbers"><div>1</div></div>
+            <div class="code-area"><span class="sql-comment">-- Waiting for input...</span></div>
+          </div>
+        </div>
+        <div class="query-label" id="queryLabel">Query Result</div>
+        <div class="query-result" id="queryResult">
+          <span style="color: var(--green-dim)">No queries executed yet.</span>
+        </div>
+      </div>
+
+      <div class="resize-handle-v" id="vHandle"></div>
+
+      <div class="panel terminal-container">
+        <div class="panel-title">Terminal</div>
+        <div class="terminal-panel">
+          <div class="terminal-scroll" id="terminalScroll">
+            <div class="terminal-output" id="terminalOutput"></div>
+            <div class="terminal-input-row">
+              <span class="prompt-symbol" id="promptSymbol">hacklab@megacorp:~$</span>
+              <div class="terminal-input" id="terminalInput" contenteditable="true"
+                   role="textbox" tabindex="0"
+                   autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="resize-handle-h" id="hHandle"></div>
+
+    <!-- Right: browser + request builder -->
+    <div class="right-col">
+      <div class="panel browser-container">
+
+        <!-- Panel tab bar -->
+        <div class="bp-tab-bar">
+          <button class="bp-tab active" id="bpTabBrowser" onclick="switchBrowserPanel('browser')">Browser</button>
+          <button class="bp-tab" id="bpTabRequest" onclick="switchBrowserPanel('request')" style="display:none">&#9654; Request Builder</button>
+        </div>
+
+        <!-- Browser view -->
+        <div id="bpBrowserView">
+          <div class="urlbar-container">
+            <span class="urlbar-prefix" onclick="document.getElementById('urlbarInput').value='';submitUrlbar();" title="Go to root" style="cursor:pointer">http://portal.megacorp.internal</span>
+            <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/login"
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   data-form-type="other" data-lpignore="true"
+                   onkeydown="if(event.key==='Enter')submitUrlbar()">
+            <button class="urlbar-go" onclick="submitUrlbar()">Go</button>
+            <button class="urlbar-source" id="viewSourceBtn" onclick="toggleViewSource()">View Source</button>
+          </div>
+          <div class="browser-viewport" id="browserViewport">
+            <iframe id="browserFrame" sandbox="allow-same-origin allow-scripts allow-forms" class="browser-frame" style="display:none"></iframe>
+            <pre class="browser-source" id="browserSource" style="display:none"></pre>
+            <div class="browser-placeholder" id="browserPlaceholder">
+              <span style="color: var(--green-dim)">Enter a URL path above and press Go.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Request Builder view -->
+        <div id="bpRequestView" style="display:none">
+          <div class="rb-form-area">
+
+            <!-- Method + URL + Send -->
+            <div class="rb-method-url-row">
+              <select class="rb-method-select" id="rbMethod" onchange="rbUpdatePreview()">
+                <option value="GET">GET</option>
+                <option value="POST" selected>POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+                <option value="PATCH">PATCH</option>
+              </select>
+              <div class="rb-url-bar">
+                <span class="rb-url-base">http://portal.megacorp.internal</span>
+                <input class="rb-url-path" id="rbPath" placeholder="/"
+                       oninput="rbUpdatePreview()" autocomplete="off" spellcheck="false">
+              </div>
+              <button class="rb-send-btn" id="rbSendBtn" onclick="rbSend()">Send</button>
+            </div>
+
+            <!-- Headers section -->
+            <div class="rb-section">
+              <div class="rb-section-hdr">
+                <span class="rb-section-label">HEADERS</span>
+                <button class="rb-add-btn" onclick="rbAddRow('rbHeaderRows', 'Header name')">+ Add</button>
+              </div>
+              <div class="rb-rows" id="rbHeaderRows">
+                <span class="rb-empty-hint">No headers — click + Add to inject one (e.g. Host: evil.com)</span>
+              </div>
+            </div>
+
+            <!-- Body params section -->
+            <div class="rb-section">
+              <div class="rb-section-hdr">
+                <span class="rb-section-label">BODY PARAMS</span>
+                <button class="rb-add-btn" onclick="rbAddRow('rbBodyRows', 'param')">+ Add</button>
+              </div>
+              <div class="rb-rows" id="rbBodyRows">
+                <span class="rb-empty-hint">No body params — click + Add (used for POST requests)</span>
+              </div>
+            </div>
+
+            <!-- curl preview -->
+            <div class="rb-curl-box">
+              <span class="rb-curl-label">&#9654; curl equivalent</span>
+              <code class="rb-curl-code" id="rbCurlCode">curl "http://portal.megacorp.internal/"</code>
+            </div>
+
+          </div><!-- end rb-form-area -->
+
+          <!-- Response section -->
+          <div class="rb-response-area" id="rbResponseArea">
+            <div class="rb-response-hdr">
+              <span class="rb-section-label">RESPONSE</span>
+              <span class="rb-response-status" id="rbResponseStatus"></span>
+            </div>
+            <iframe class="rb-response-frame" id="rbResponseFrame"
+                    sandbox="allow-same-origin allow-scripts"></iframe>
+          </div>
+
+        </div><!-- end bpRequestView -->
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Hidden tab content stubs so existing JS references don't break -->
+<div id="tabTerminal" style="display:none"></div>
+<div id="tabUrlbar" style="display:none"></div>
+
+<div class="paywall-overlay" id="paywallOverlay">
+  <div class="paywall-modal">
+    <div class="paywall-badge">&#9670; PIXELMART SECURITY REVIEW</div>
+    <h2 class="paywall-title">5 Advanced Missions Await</h2>
+    <p class="paywall-story">MegaCorp just acquired PixelMart. Security review starts today. The dev team was rushed and the platform is riddled with flaws. Find every vulnerability before it goes live.</p>
+    <div class="paywall-levels">
+      <div class="paywall-level"><span class="paywall-num">06</span><span class="paywall-name">Price Manipulation</span></div>
+      <div class="paywall-level"><span class="paywall-num">07</span><span class="paywall-name">Directory Traversal</span></div>
+      <div class="paywall-level"><span class="paywall-num">08</span><span class="paywall-name">Server-Side Request Forgery</span></div>
+      <div class="paywall-level"><span class="paywall-num">09</span><span class="paywall-name">Mass Assignment</span></div>
+      <div class="paywall-level"><span class="paywall-num">10</span><span class="paywall-name">Password Reset Poisoning</span></div>
+    </div>
+    <div class="paywall-price-row">
+      <span class="paywall-price">$0.99</span>
+      <span class="paywall-price-label">one-time unlock &middot; instant access</span>
+    </div>
+    <div class="paywall-btn-row">
+      <button class="paywall-btn secondary" onclick="dismissPaywall()">&larr; Not Now</button>
+      <button class="paywall-btn" id="paywallUnlockBtn" onclick="startUnlock()">Unlock Operation Blacksite</button>
+    </div>
+  </div>
+</div>
+
+<div class="unlock-overlay" id="unlockOverlay">
+  <div class="unlock-modal">
+    <div class="unlock-badge">&#9670; OPERATION BLACKSITE UNLOCKED</div>
+    <h2 class="unlock-title">Access Granted.</h2>
+    <p class="unlock-subtitle">Five new vulnerabilities. One acquisition. Zero time to waste.</p>
+    <div class="unlock-levels">
+      <div class="unlock-level"><span class="unlock-num">06</span><span class="unlock-name">Price Manipulation</span></div>
+      <div class="unlock-level"><span class="unlock-num">07</span><span class="unlock-name">Directory Traversal</span></div>
+      <div class="unlock-level"><span class="unlock-num">08</span><span class="unlock-name">Server-Side Request Forgery</span></div>
+      <div class="unlock-level"><span class="unlock-num">09</span><span class="unlock-name">Mass Assignment</span></div>
+      <div class="unlock-level"><span class="unlock-num">10</span><span class="unlock-name">Password Reset Poisoning</span></div>
+    </div>
+    <div class="unlock-btn-row">
+      <button class="unlock-btn secondary" onclick="document.getElementById('unlockOverlay').classList.remove('visible')">&larr; Back to Terminal</button>
+      <button class="unlock-btn" id="unlockStartBtn">Start Stage 6 →</button>
+    </div>
+  </div>
+</div>
+
+<div class="success-overlay" id="successOverlay">
+  <div class="success-modal">
+    <div class="success-badge">STAGE COMPLETE</div>
+    <h2 class="success-title" id="successTitle"></h2>
+    <p class="success-subtitle" id="successSubtitle"></p>
+    <div class="success-divider"></div>
+    <div class="success-explanation" id="successExplanation"></div>
+    <div class="success-divider"></div>
+    <div class="success-defense" id="successDefense"></div>
+    <div class="success-btn-row">
+      <a class="coffee-modal-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">&#9749; Buy me a coffee</a>
+      <button class="success-btn secondary" id="successBtnBack"></button>
+      <button class="success-btn" id="successBtnNext"></button>
+    </div>
+  </div>
+</div>
+
+<div class="completion-overlay" id="completionOverlay">
+  <div class="completion-modal">
+    <div class="completion-badge" id="completionBadge">HACKLAB COMPLETE</div>
+    <h2 class="completion-title" id="completionTitle">Mission Accomplished</h2>
+    <p class="completion-subtitle" id="completionSubtitle">You've identified all 5 vulnerabilities in the MegaCorp portal.</p>
+    <div class="completion-grid" id="completionGrid">
+      <div class="completion-card">
+        <div class="completion-card-num">01</div>
+        <div class="completion-card-title">Information Leakage</div>
+        <div class="completion-card-owasp">OWASP A05 — Security Misconfiguration</div>
+      </div>
+      <div class="completion-card">
+        <div class="completion-card-num">02</div>
+        <div class="completion-card-title">Broken Access Control (IDOR)</div>
+        <div class="completion-card-owasp">OWASP A01 — Broken Access Control</div>
+      </div>
+      <div class="completion-card">
+        <div class="completion-card-num">03</div>
+        <div class="completion-card-title">Cross-Site Scripting (XSS)</div>
+        <div class="completion-card-owasp">OWASP A03 — Injection</div>
+      </div>
+      <div class="completion-card">
+        <div class="completion-card-num">04</div>
+        <div class="completion-card-title">SQL Injection</div>
+        <div class="completion-card-owasp">OWASP A03 — Injection</div>
+      </div>
+      <div class="completion-card">
+        <div class="completion-card-num">05</div>
+        <div class="completion-card-title">Command Injection</div>
+        <div class="completion-card-owasp">OWASP A03 — Injection</div>
+      </div>
+    </div>
+    <div class="completion-footer" id="completionFooter">
+      <p>These are real vulnerabilities found in production systems every day. Now you know how to spot them — and how to defend against them.</p>
+      <div class="completion-btn-row">
+        <a class="success-btn coffee-modal-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">&#9749; Buy me a coffee</a>
+        <button class="success-btn secondary" onclick="dismissCompletion()">&larr; Back to Terminal</button>
+        <button class="success-btn" onclick="restartFromCompletion()">Play Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/query-display.js"></script>
+<script src="/js/terminal.js?v=2"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
