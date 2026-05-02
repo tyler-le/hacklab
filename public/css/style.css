@@ -885,7 +885,7 @@ body::after {
 }
 
 .rb-url-base {
-  color: var(--green-dim);
+  color: #4ecf6e;
   font-size: 0.75rem;
   padding: 7px 8px;
   white-space: nowrap;
@@ -905,7 +905,7 @@ body::after {
   min-width: 0;
 }
 
-.rb-url-path::placeholder { color: var(--green-dark); }
+.rb-url-path::placeholder { color: #3a7a4a; }
 
 .rb-send-btn {
   background: var(--green);
@@ -941,15 +941,15 @@ body::after {
 
 .rb-section-label {
   font-size: 0.7rem;
-  color: var(--green-dim);
+  color: #4ecf6e;
   letter-spacing: 2px;
   text-transform: uppercase;
 }
 
 .rb-add-btn {
   background: none;
-  border: 1px solid var(--border);
-  color: var(--green-dim);
+  border: 1px solid #2a5a2a;
+  color: #4ecf6e;
   font-family: 'Fira Mono', monospace;
   font-size: 0.72rem;
   padding: 3px 10px;
@@ -964,7 +964,7 @@ body::after {
 
 .rb-empty-hint {
   font-size: 0.72rem;
-  color: var(--green-dark);
+  color: #3a7a4a;
   font-style: italic;
 }
 
@@ -988,7 +988,7 @@ body::after {
 }
 
 .rb-kv-key:focus, .rb-kv-val:focus { border-color: var(--green-dim); }
-.rb-kv-key::placeholder, .rb-kv-val::placeholder { color: var(--green-dark); }
+.rb-kv-key::placeholder, .rb-kv-val::placeholder { color: #3a7a4a; }
 
 .rb-kv-remove {
   background: none;
@@ -1019,7 +1019,7 @@ body::after {
 .rb-curl-label {
   display: block;
   font-size: 0.68rem;
-  color: var(--green-dim);
+  color: #4ecf6e;
   letter-spacing: 1px;
   text-transform: uppercase;
   margin-bottom: 6px;
@@ -1058,7 +1058,7 @@ body::after {
 .rb-response-status {
   font-size: 0.75rem;
   font-family: 'Fira Mono', monospace;
-  color: var(--green-dim);
+  color: #4ecf6e;
 }
 
 .rb-response-status.success { color: var(--green); }
