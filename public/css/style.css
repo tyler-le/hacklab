@@ -864,9 +864,9 @@ body::after {
   border: 1px solid var(--border);
   color: var(--amber);
   font-family: 'Fira Mono', monospace;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  padding: 6px 6px;
+  padding: 7px 8px;
   border-radius: 4px;
   cursor: pointer;
   flex-shrink: 0;
@@ -886,8 +886,8 @@ body::after {
 
 .rb-url-base {
   color: var(--green-dim);
-  font-size: 0.62rem;
-  padding: 6px 6px 6px 8px;
+  font-size: 0.75rem;
+  padding: 7px 8px;
   white-space: nowrap;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
@@ -899,8 +899,8 @@ body::after {
   border: none;
   color: var(--green);
   font-family: 'Fira Mono', monospace;
-  font-size: 0.68rem;
-  padding: 6px 8px;
+  font-size: 0.78rem;
+  padding: 7px 8px;
   outline: none;
   min-width: 0;
 }
@@ -912,9 +912,9 @@ body::after {
   color: #000;
   border: none;
   font-family: 'Fira Mono', monospace;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  padding: 7px 14px;
+  padding: 7px 16px;
   border-radius: 4px;
   cursor: pointer;
   letter-spacing: 1px;
@@ -928,7 +928,7 @@ body::after {
 
 /* Sections (headers / body) */
 .rb-section {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -940,7 +940,7 @@ body::after {
 }
 
 .rb-section-label {
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   color: var(--green-dim);
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -951,8 +951,8 @@ body::after {
   border: 1px solid var(--border);
   color: var(--green-dim);
   font-family: 'Fira Mono', monospace;
-  font-size: 0.62rem;
-  padding: 2px 8px;
+  font-size: 0.72rem;
+  padding: 3px 10px;
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.15s;
@@ -963,7 +963,7 @@ body::after {
 .rb-rows { display: flex; flex-direction: column; gap: 4px; }
 
 .rb-empty-hint {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   color: var(--green-dark);
   font-style: italic;
 }
@@ -980,8 +980,8 @@ body::after {
   border: 1px solid var(--border);
   color: var(--green);
   font-family: 'Fira Mono', monospace;
-  font-size: 0.67rem;
-  padding: 5px 7px;
+  font-size: 0.78rem;
+  padding: 6px 8px;
   border-radius: 3px;
   outline: none;
   min-width: 0;
@@ -1018,21 +1018,21 @@ body::after {
 
 .rb-curl-label {
   display: block;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   color: var(--green-dim);
   letter-spacing: 1px;
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 
 .rb-curl-code {
   display: block;
   font-family: 'Fira Mono', monospace;
-  font-size: 0.65rem;
+  font-size: 0.76rem;
   color: var(--amber);
   word-break: break-all;
   white-space: pre-wrap;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 /* Response area */
@@ -1056,7 +1056,7 @@ body::after {
 }
 
 .rb-response-status {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-family: 'Fira Mono', monospace;
   color: var(--green-dim);
 }
