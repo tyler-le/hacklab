@@ -175,11 +175,29 @@ class ShellSession {
       case 'clear': return core.clear();
       case 'help': return core.help();
       case 'hint': return { stdout: '', isHint: true };
+      case 'base64': return this._base64(stdin, cmdArgs);
       case 'wc': return this._wc(stdin, cmdArgs);
       case 'sort': return this._sort(stdin);
       case 'uniq': return this._uniq(stdin);
       default:
         return { stderr: `bash: ${cmd}: command not found` };
+    }
+  }
+
+  // base64 encode/decode
+  _base64(stdin, args) {
+    const isDecode = args.includes('-d') || args.includes('--decode');
+    const input = (stdin || args.filter(a => !a.startsWith('-')).join(' ')).trim();
+    if (!input) return { stderr: 'base64: missing input' };
+    try {
+      if (isDecode) {
+        const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+        return { stdout: Buffer.from(normalized, 'base64').toString('utf8') };
+      } else {
+        return { stdout: Buffer.from(input).toString('base64') };
+      }
+    } catch {
+      return { stderr: 'base64: invalid input' };
     }
   }
 
@@ -237,7 +255,7 @@ class ShellSession {
     const commands = [
       'ls', 'cd', 'cat', 'grep', 'find', 'head', 'tail', 'curl', 'sqlite3',
       'pwd', 'whoami', 'id', 'hostname', 'uname', 'echo', 'env', 'printenv',
-      'history', 'file', 'clear', 'help', 'hint', 'wc', 'sort', 'uniq',
+      'history', 'file', 'clear', 'help', 'hint', 'base64', 'wc', 'sort', 'uniq',
       'next', 'restart', 'status',
     ];
     const matches = partial

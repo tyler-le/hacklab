@@ -62,7 +62,7 @@ const STAGE_FLAGS = {
   4: 'AKIA3R9F8GHSL29XKMP4',         // Stage 5: AWS key read via command injection
   5: 'DEAL-Xk9mP2rL',               // Stage 6: Transaction ID via price manipulation
   6: 'VAULT-Wm3nK8xR',              // Stage 7: Flag via directory traversal
-  7: 'EXEC-Jz5pQ7wN',               // Stage 8: Flag via file upload bypass
+  7: 'SSRF-Pw2kX9mV',               // Stage 8: AWS SecretAccessKey leaked via SSRF
   8: 'ADMIN-Bv2nR6tK',              // Stage 9: Admin token via mass assignment
   9: 'RESET-Hy8kM4vP',              // Stage 10: Reset token via host header injection
 };
@@ -136,8 +136,8 @@ function handleRequest(method, url, body, sessionId, stageIndex, headers) {
   if (route === '/shop/cart') return handleShopCartPage(query, stageIndex);
   if (route === '/shop/orders' && method === 'POST') return handleShopPlaceOrder(postData, stageIndex);
   if (route === '/shop/image') return handleShopImage(query, stageIndex);
-  if (route === '/shop/upload' && method === 'POST') return handleShopUpload(postData, stageIndex);
-  if (route === '/shop/upload') return handleShopUploadPage(stageIndex);
+  if (route === '/shop/seller/import' && method === 'POST') return handleShopSellerImport(postData, stageIndex);
+  if (route === '/shop/seller/import') return handleShopSellerImportPage(stageIndex);
   if (route === '/shop/register' && method === 'POST') return handleShopRegister(postData, stageIndex);
   if (route === '/shop/register') return handleShopRegisterPage(stageIndex);
   if (route === '/shop/admin') return handleShopAdmin(stageIndex);
@@ -2165,34 +2165,52 @@ pre{background:#0a0a06;border:1px solid #664400;border-radius:8px;padding:16px;c
   };
 }
 
-function handleShopUploadPage(stageIndex) {
+// Simulated AWS instance metadata responses
+const AWS_METADATA = {
+  '/latest/meta-data/': 'ami-id\nami-launch-index\nhostname\niam/\ninstance-id\ninstance-type\nlocal-ipv4\npublic-ipv4\n',
+  '/latest/meta-data/iam/': 'info\nsecurity-credentials/\n',
+  '/latest/meta-data/iam/security-credentials/': 'pixelmart-ec2-role\n',
+  '/latest/meta-data/iam/security-credentials/pixelmart-ec2-role': JSON.stringify({
+    Code: 'Success',
+    LastUpdated: '2025-01-15T09:00:00Z',
+    Type: 'AWS-HMAC',
+    AccessKeyId: 'AKIA4PIXELMART7KSSRF',
+    SecretAccessKey: 'SSRF-Pw2kX9mV',
+    Token: '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',
+    Expiration: '2025-01-15T15:00:00Z',
+  }, null, 2),
+  '/latest/meta-data/instance-id': 'i-0abc123pixelmart',
+  '/latest/meta-data/local-ipv4': '10.0.1.42',
+  '/latest/meta-data/public-ipv4': '54.173.219.88',
+  '/latest/meta-data/hostname': 'pixelmart-web-01.ec2.internal',
+};
+
+function handleShopSellerImportPage(stageIndex) {
   return {
     status: 200,
     headers: { 'Content-Type': 'text/html' },
     body: `<!DOCTYPE html>
 <html>
-<head><title>PixelMart — Seller Upload</title>
+<head><title>PixelMart — Product Import</title>
 <style>${PM_CSS}
 .pm-main{align-items:center;padding:32px 16px}
-.filter-note{background:#1a0f00;border:1px solid #664400;border-radius:8px;padding:14px;font-size:12px;color:#886644;margin-bottom:16px;font-family:monospace}
-.filter-note strong{color:#ff9500}
+.sample-url{font-family:monospace;font-size:11px;color:#886644;background:#0a0a06;border:1px solid #2a1f00;border-radius:4px;padding:4px 8px;display:block;margin-top:6px;word-break:break-all}
 </style>
 </head>
 <body>
 <div class="pm-topbar">
   <span class="pm-logo">Pixel<span>Mart</span></span>
-  <span class="pm-badge">SELLER PORTAL</span>
+  <span class="pm-badge">SELLER TOOLS</span>
 </div>
 <div class="pm-main">
   <div class="pm-card">
-    <h2>Upload Product Image</h2>
-    <p>Upload an image for your product listing. Only image files are allowed.</p>
-    <form method="POST" action="/shop/upload" autocomplete="off">
-      <label>Filename</label>
-      <input name="filename" placeholder="e.g. product_photo.jpg" autocomplete="off" />
-      <label>File Content (text)</label>
-      <input name="content" placeholder="File contents" autocomplete="off" />
-      <button type="submit">Upload Product Image</button>
+    <h2>Import Product Data</h2>
+    <p>Paste a URL to a JSON product file and we'll auto-populate your listing.</p>
+    <form method="POST" action="/shop/seller/import" autocomplete="off">
+      <label>Product Data URL</label>
+      <input name="url" placeholder="https://example.com/product.json" autocomplete="off" />
+      <span class="sample-url">e.g. https://example.com/product.json</span>
+      <button type="submit">Import Product</button>
     </form>
   </div>
 </div>
@@ -2202,85 +2220,106 @@ function handleShopUploadPage(stageIndex) {
   };
 }
 
-function handleShopUpload(postData, stageIndex) {
-  const filename = postData.filename || '';
-  const content = postData.content || '';
+function handleShopSellerImport(postData, stageIndex) {
+  const url = (postData.url || '').trim();
 
-  // VULNERABLE: case-sensitive denylist check
-  const blocked = filename.endsWith('.php') || filename.endsWith('.js') || filename.endsWith('.sh');
-
-  if (blocked) {
+  if (!url) {
     return {
-      status: 403,
+      status: 400,
       headers: { 'Content-Type': 'text/html' },
       body: `<!DOCTYPE html>
-<html>
-<head><title>Upload Blocked</title>
-<style>${PM_CSS}
-.pm-main{align-items:center;padding:32px 16px}
-</style>
-</head>
+<html><head><title>PixelMart — Error</title><style>${PM_CSS}.pm-main{align-items:center;padding:32px 16px}</style></head>
 <body>
-<div class="pm-topbar">
-  <span class="pm-logo">Pixel<span>Mart</span></span>
-  <span class="pm-badge">UPLOAD BLOCKED</span>
-</div>
-<div class="pm-main">
-  <div class="pm-card">
-    <div class="pm-err">403 &mdash; File type not allowed: ${escapeHtml(filename)}</div>
-    <p style="color:#886644;font-size:13px;margin-top:8px">That file type is not permitted on this platform.</p>
-  </div>
-</div>
-</body>
-</html>`,
+<div class="pm-topbar"><span class="pm-logo">Pixel<span>Mart</span></span><span class="pm-badge">ERROR</span></div>
+<div class="pm-main"><div class="pm-card"><div class="pm-err">400 &mdash; url parameter is required.</div></div></div>
+</body></html>`,
     };
   }
 
-  // Any non-lowercase blocked extension bypasses the case-sensitive filter
-  // e.g. .PHP, .JS, .SH, .Php, .pHp — all bypass endsWith('.php')
-  const isExecutable = /\.(php|js|sh)$/i.test(filename);
+  // Simulate fetching the URL — check for AWS metadata patterns
+  let fetchedData = null;
+  let isMetadata = false;
+  let isCredentials = false;
 
-  if (isExecutable) {
-    const flag = STAGE_FLAGS[7];
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    const path = parsed.pathname;
+
+    if (host === '169.254.169.254') {
+      isMetadata = true;
+      const normalized = path.endsWith('/') ? path : path;
+      fetchedData = AWS_METADATA[normalized] || AWS_METADATA[normalized + '/'] || null;
+
+      if (!fetchedData) {
+        // Generic fallback for partial paths
+        fetchedData = `<?xml version="1.0" encoding="UTF-8"?>\n<Error>Not Found</Error>`;
+      }
+
+      // Win: reached the credentials endpoint
+      if (/security-credentials\/pixelmart-ec2-role/.test(path)) {
+        isCredentials = true;
+      }
+    } else {
+      // Simulate fetching a normal product JSON
+      fetchedData = JSON.stringify({
+        name: 'Sample Product',
+        price: 29.99,
+        description: 'Auto-imported product data.',
+        sku: 'SAMPLE-001',
+      }, null, 2);
+    }
+  } catch {
+    return {
+      status: 400,
+      headers: { 'Content-Type': 'text/html' },
+      body: `<!DOCTYPE html>
+<html><head><title>PixelMart — Error</title><style>${PM_CSS}.pm-main{align-items:center;padding:32px 16px}</style></head>
+<body>
+<div class="pm-topbar"><span class="pm-logo">Pixel<span>Mart</span></span><span class="pm-badge">ERROR</span></div>
+<div class="pm-main"><div class="pm-card"><div class="pm-err">400 &mdash; Invalid URL: ${escapeHtml(url)}</div></div></div>
+</body></html>`,
+    };
+  }
+
+  const flag = STAGE_FLAGS[7];
+  const fetchedEscaped = escapeHtml(fetchedData);
+
+  if (isCredentials) {
     return {
       status: 200,
       headers: { 'Content-Type': 'text/html' },
       body: `<!DOCTYPE html>
 <html>
-<head><title>PixelMart — Upload Executed!</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:ui-monospace,'Cascadia Code',monospace;background:#0a0a06;color:#ffbb44;padding:24px;font-size:13px;line-height:1.6}
-.banner{background:#001a0d;border:2px solid #00cc55;border-radius:10px;padding:20px;margin-bottom:20px;text-align:center;box-shadow:0 0 30px rgba(0,204,85,.15)}
-.banner h1{color:#00cc55;font-size:20px;font-family:-apple-system,sans-serif;font-weight:800;margin-bottom:6px}
-.banner p{color:#55dd88;font-size:13px}
-.terminal{background:#0a0a0a;border:1px solid #224422;border-radius:8px;padding:16px;margin-bottom:16px}
-.terminal .prompt{color:#00cc55}
-.terminal .output{color:#ffbb44;margin:4px 0 12px 0;white-space:pre}
-.flag-box{background:#002210;border:1px solid #00cc55;border-radius:8px;padding:14px;margin-top:16px;text-align:center}
-.flag-label{font-size:10px;color:#00cc55;text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
-.flag-val{font-size:16px;font-weight:800;color:#00ff66;font-family:ui-monospace,monospace}
+<head><title>PixelMart — Import Result</title>
+<style>${PM_CSS}
+.pm-main{align-items:flex-start;padding:28px 16px}
+.result-box{background:#0a0a06;border:1px solid #664400;border-radius:8px;padding:16px;font-family:ui-monospace,monospace;font-size:12px;color:#ffbb44;white-space:pre-wrap;word-break:break-all;margin-top:12px;line-height:1.7}
+.flag-box{background:#001a0d;border:2px solid #00cc55;border-radius:10px;padding:20px;margin-top:16px;text-align:center;box-shadow:0 0 24px rgba(0,204,85,.1)}
+.flag-box h3{color:#00cc55;font-size:16px;margin-bottom:6px}
+.flag-box p{color:#55dd88;font-size:12px;margin-bottom:12px}
+.flag-label{font-size:10px;color:#00cc55;text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px}
+.flag-val{font-size:18px;font-weight:800;color:#00ff66;font-family:ui-monospace,monospace}
+.url-badge{font-size:11px;color:#ff9500;background:#1a0f00;border:1px solid #664400;border-radius:4px;padding:4px 10px;display:inline-block;margin-bottom:10px;font-family:monospace;word-break:break-all}
 </style>
 </head>
 <body>
-<div class="banner">
-  <h1>UPLOAD SUCCESSFUL</h1>
-  <p>${escapeHtml(filename)} executed on server!</p>
+<div class="pm-topbar">
+  <span class="pm-logo">Pixel<span>Mart</span></span>
+  <span class="pm-badge">IMPORT RESULT</span>
 </div>
-<div class="terminal">
-  <div class="prompt">$ # File uploaded to /uploads/${escapeHtml(filename)}</div>
-  <div class="prompt">$ id</div>
-  <div class="output">uid=33(www-data) gid=33(www-data) groups=33(www-data)</div>
-  <div class="prompt">$ cat /etc/pixelmart/secrets.txt</div>
-  <div class="output">PIXELMART_SECRET_KEY=${escapeHtml(flag)}
-DB_URL=postgres://pixelmart:pm_db_S3cr3t!@db.internal/pixelmart
-STRIPE_KEY=sk_live_pm_4eC39HqLyjWDarjtT1</div>
-  <div class="prompt">$ uname -a</div>
-  <div class="output">Linux pixelmart-web-01 5.15.0 #1 SMP x86_64</div>
-</div>
-<div class="flag-box">
-  <div class="flag-label">Flag — Submit this value</div>
-  <div class="flag-val">${escapeHtml(flag)}</div>
+<div class="pm-main">
+  <div class="pm-card" style="max-width:560px">
+    <h2>Server fetched:</h2>
+    <div class="url-badge">${escapeHtml(url)}</div>
+    <div class="result-box">${fetchedEscaped}</div>
+    <div class="flag-box">
+      <h3>&#9888; AWS IAM Credentials Leaked</h3>
+      <p>The server fetched its own instance metadata. Submit the <strong>SecretAccessKey</strong>.</p>
+      <div class="flag-label">SecretAccessKey</div>
+      <div class="flag-val">${escapeHtml(flag)}</div>
+    </div>
+  </div>
 </div>
 </body>
 </html>`,
@@ -2288,27 +2327,31 @@ STRIPE_KEY=sk_live_pm_4eC39HqLyjWDarjtT1</div>
     };
   }
 
-  // Innocent file (jpg, png, etc.) — accepted normally
+  // Non-credential metadata or normal URL
   return {
     status: 200,
     headers: { 'Content-Type': 'text/html' },
     body: `<!DOCTYPE html>
 <html>
-<head><title>Upload Accepted</title>
+<head><title>PixelMart — Import Result</title>
 <style>${PM_CSS}
-.pm-main{align-items:center;padding:32px 16px}
+.pm-main{align-items:flex-start;padding:28px 16px}
+.result-box{background:#0a0a06;border:1px solid #664400;border-radius:8px;padding:16px;font-family:ui-monospace,monospace;font-size:12px;color:#ffbb44;white-space:pre-wrap;word-break:break-all;margin-top:12px;line-height:1.7}
+.url-badge{font-size:11px;color:#ff9500;background:#1a0f00;border:1px solid #664400;border-radius:4px;padding:4px 10px;display:inline-block;margin-bottom:10px;font-family:monospace;word-break:break-all}
+${isMetadata ? '.pm-warn{margin-top:12px}' : ''}
 </style>
 </head>
 <body>
 <div class="pm-topbar">
   <span class="pm-logo">Pixel<span>Mart</span></span>
-  <span class="pm-badge">UPLOADED</span>
+  <span class="pm-badge">IMPORT RESULT</span>
 </div>
 <div class="pm-main">
-  <div class="pm-card">
-    <h2>Upload Accepted</h2>
-    <p style="color:#886644;margin-bottom:12px">File saved: <strong style="color:#ffbb44">${escapeHtml(filename)}</strong></p>
-    <p style="color:#664400;font-size:12px">File stored at /uploads/${escapeHtml(filename)}</p>
+  <div class="pm-card" style="max-width:560px">
+    <h2>Server fetched:</h2>
+    <div class="url-badge">${escapeHtml(url)}</div>
+    <div class="result-box">${fetchedEscaped}</div>
+    ${isMetadata ? `<div class="pm-warn">&#9888; You're reading the AWS metadata service. Keep digging — credentials are at <code style="color:#ffbb44">/latest/meta-data/iam/security-credentials/&lt;role-name&gt;</code></div>` : ''}
   </div>
 </div>
 </body>

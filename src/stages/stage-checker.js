@@ -177,27 +177,27 @@ DEFENSE: After joining paths with path.join(), always call path.resolve() and ve
     },
   },
   {
-    id: 'file_upload',
-    title: 'Stage 8: File Upload Bypass',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart's seller portal at <span class="cmd">/shop/upload</span> lets sellers upload product images. The server has a filter to block dangerous file types — but it was implemented hastily.
+    id: 'ssrf',
+    title: 'Stage 8: Server-Side Request Forgery',
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart has a seller import tool at <span class="cmd">/shop/seller/import</span>. Sellers paste a URL and the server fetches it to auto-populate a product listing. The server runs on AWS — and the AWS metadata endpoint is reachable from inside it.
 
-<span class="highlight">OBJECTIVE:</span> Upload a server-side script file to achieve code execution and retrieve the flag.
+<span class="highlight">OBJECTIVE:</span> Make the PixelMart server fetch its own AWS IAM credentials from the metadata service and <span class="cmd">submit</span> the secret access key you find.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/upload</span> and read <span class="cmd">cat routes.js</span> to understand how the filter works.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/seller/import</span> in the browser. Read <span class="cmd">cat routes.js</span> to understand how the import works. The AWS metadata service always lives at <span class="cmd">http://169.254.169.254</span>.`,
     hints: [
-      'Read routes.js and look at how the upload filter checks the filename. Is the comparison airtight?',
-      'The filter uses a denylist of dangerous extensions. Think about edge cases — are all variations of those extensions covered?',
-      'Most web servers treat .php and .PHP as the same file type. Does the filter?',
+      'Visit /shop/seller/import and try submitting a normal URL first to see how the feature works. The server fetches whatever URL you give it.',
+      'Read routes.js — the import handler calls fetch(url) with no validation. The AWS metadata IP 169.254.169.254 is only reachable from inside AWS — but the server IS inside AWS.',
+      'Enumerate the metadata: submit http://169.254.169.254/latest/meta-data/iam/security-credentials/ to get the IAM role name, then append it to the path to leak the full credentials.',
     ],
-    flagPrompt: 'Enter the flag from the upload execution output...',
+    flagPrompt: 'Enter the AWS SecretAccessKey you leaked...',
     success: {
-      title: 'File Upload Bypass Successful!',
-      subtitle: 'You bypassed the extension filter using uppercase to achieve code execution.',
-      explanation: `The server blocked .php, .js, and .sh using a case-sensitive string comparison — endsWith('.php') does not match .PHP. The uploaded file was then served directly and executed.
+      title: 'SSRF Attack Successful!',
+      subtitle: 'You made the server fetch its own AWS credentials from the metadata service.',
+      explanation: `The import endpoint called fetch(url) with no validation on the URL you supplied. By pointing it at http://169.254.169.254 — the AWS instance metadata IP — you made the server request its own IAM credentials. Those credentials grant access to every AWS resource the server can touch.
 
-This is a classic bypass. Real-world filters must lowercase the filename before checking, or better yet, use an allowlist of safe extensions (.jpg, .png, .gif) instead of a denylist of dangerous ones.
+This is exactly how the Capital One breach happened in 2019: a misconfigured WAF allowed SSRF, an attacker queried the EC2 metadata endpoint, and 100 million customer records were stolen.
 
-DEFENSE: Lowercase the entire filename before extension checking. Use an allowlist, not a denylist. Store uploads outside the web root so they can never be executed, and randomize filenames on the server.`,
+DEFENSE: Never fetch user-supplied URLs server-side without strict validation. Block private IP ranges (169.254.x.x, 10.x.x.x, 127.x.x.x) and use an allowlist of approved domains. In AWS, use IMDSv2 which requires a PUT request first, preventing simple SSRF.`,
     },
   },
   {

@@ -12,7 +12,7 @@ const PUBLIC_STAGE_COUNT = EXTRA_LEVELS ? getStageCount() : 5;
 
 function getNudge(stageIndex, result, command) {
   const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
-    'price_tamper', 'path_traversal', 'file_upload', 'mass_assign', 'reset_poison'];
+    'price_tamper', 'path_traversal', 'ssrf', 'mass_assign', 'reset_poison'];
   const stageId = STAGE_IDS[stageIndex];
 
   if (stageId === 'intro') {
@@ -79,12 +79,15 @@ function getNudge(stageIndex, result, command) {
     }
   }
 
-  if (stageId === 'file_upload') {
-    if (/\/shop\/upload/.test(command) && result.stdout && /blocked|403|not allowed/i.test(result.stdout)) {
-      return '✓ Upload blocked! The check is case-sensitive. Try .PHP instead of .php';
+  if (stageId === 'ssrf') {
+    if (/169\.254\.169\.254/.test(command) && result.stdout && !result.stageFlag) {
+      if (!/security-credentials/.test(command)) {
+        return '✓ Metadata service reached! Keep digging — navigate to /latest/meta-data/iam/security-credentials/ to find the IAM role name.';
+      }
+      return '✓ Found the role name! Append it to the path: /latest/meta-data/iam/security-credentials/<role-name>';
     }
-    if (/\/shop\/upload/.test(command) && !result.stageFlag && result.stdout) {
-      return '✓ Upload endpoint reached! Make sure your filename ends in .PHP (uppercase) to bypass the case-sensitive filter.';
+    if (/\/shop\/seller\/import/.test(command) && result.stdout && !result.stageFlag) {
+      return '✓ Import endpoint reached! The server fetches whatever URL you give it. Try pointing it at http://169.254.169.254/latest/meta-data/';
     }
   }
 

@@ -20,7 +20,7 @@ const stageActiveTab = {};
 
 // Stage ID list for tab management
 const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
-  'price_tamper', 'path_traversal', 'file_upload', 'mass_assign', 'reset_poison'];
+  'price_tamper', 'path_traversal', 'ssrf', 'mass_assign', 'reset_poison'];
 
 // Monitor title per stage (null = hide the panel)
 const MONITOR_TITLES = {
@@ -187,7 +187,7 @@ function switchTab(tabName) {
 const RB_PLACEHOLDERS = {
   5: '/shop/orders',
   6: '/shop/image?file=laptop.jpg',
-  7: '/shop/upload',
+  7: '/shop/seller/import',
   8: '/shop/register',
   9: '/shop/reset',
 };
@@ -215,7 +215,7 @@ function renderStageDots() {
     'Stage 5: Command Injection',
     'Stage 6: Price Manipulation',
     'Stage 7: Directory Traversal',
-    'Stage 8: File Upload Bypass',
+    'Stage 8: Server-Side Request Forgery',
     'Stage 9: Mass Assignment',
     'Stage 10: Password Reset Poisoning',
   ];
@@ -333,28 +333,33 @@ function showSuccess(success) {
   btnBack.textContent = '← Review Stage';
   btnBack.onclick = () => dismissSuccess();
 
-  // After completing last free stage (stage 5, index 4), show paywall if not unlocked
-  if (currentStage === FREE_STAGE_COUNT - 1 && !advancedUnlocked) {
+  // completedStages already includes currentStage by the time showSuccess is called
+  const packSize = advancedUnlocked ? stageCount : FREE_STAGE_COUNT;
+  const allDone = completedStages.size >= packSize;
+
+  if (allDone) {
+    btnNext.textContent = 'View Summary →';
+    btnNext.onclick = () => { dismissSuccess(); showCompletion(); };
+    btnNext.style.display = '';
+  } else if (currentStage === FREE_STAGE_COUNT - 1 && !advancedUnlocked) {
     btnNext.textContent = 'Continue to Blacksite →';
-    btnNext.onclick = () => {
-      dismissSuccess();
-      showPaywall(FREE_STAGE_COUNT);
-    };
+    btnNext.onclick = () => { dismissSuccess(); showPaywall(FREE_STAGE_COUNT); };
     btnNext.style.display = '';
   } else if (currentStage < stageCount - 1) {
     btnNext.textContent = 'Next Stage →';
-    btnNext.onclick = () => {
-      dismissSuccess();
-      jumpToStage(currentStage + 1);
-    };
+    btnNext.onclick = () => { dismissSuccess(); jumpToStage(currentStage + 1); };
     btnNext.style.display = '';
   } else {
-    btnNext.textContent = 'View Summary →';
-    btnNext.onclick = () => {
-      dismissSuccess();
-      showCompletion();
-    };
-    btnNext.style.display = '';
+    // On the last stage index but pack not fully done — go to first incomplete
+    let firstIncomplete = 0;
+    while (firstIncomplete < stageCount && completedStages.has(firstIncomplete)) firstIncomplete++;
+    if (firstIncomplete < stageCount) {
+      btnNext.textContent = `Continue (${completedStages.size}/${packSize}) →`;
+      btnNext.onclick = () => { dismissSuccess(); jumpToStage(firstIncomplete); };
+      btnNext.style.display = '';
+    } else {
+      btnNext.style.display = 'none';
+    }
   }
 
   overlay.classList.add('visible');
@@ -479,7 +484,7 @@ function showCompletion() {
   const BLACKSITE_CARDS = [
     { num: '06', title: 'Cookie Tampering', owasp: 'OWASP A02 — Cryptographic Failures' },
     { num: '07', title: 'HTTP Verb Tampering', owasp: 'OWASP A01 — Broken Access Control' },
-    { num: '08', title: 'Verbose Error Messages', owasp: 'OWASP A05 — Security Misconfiguration' },
+    { num: '08', title: 'Server-Side Request Forgery (SSRF)', owasp: 'OWASP A10 — Server-Side Request Forgery' },
     { num: '09', title: 'Hidden Debug Parameter', owasp: 'OWASP A05 — Security Misconfiguration' },
     { num: '10', title: 'Path Traversal', owasp: 'OWASP A01 — Broken Access Control' },
   ];
