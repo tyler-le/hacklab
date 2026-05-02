@@ -22,7 +22,8 @@ body {
   overflow-x: hidden;
 }
 
-/* CRT scanline overlay */
+/* CRT scanline overlay — mix-blend-mode:overlay makes it invisible on
+   white content (browser panel/iframe) while keeping the effect on dark areas */
 body::after {
   content: '';
   position: fixed;
@@ -36,6 +37,7 @@ body::after {
   );
   pointer-events: none;
   z-index: 9999;
+  mix-blend-mode: overlay;
 }
 
 .container {
