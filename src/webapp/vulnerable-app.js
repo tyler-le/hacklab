@@ -105,31 +105,157 @@ function handleRequest(method, url, body, sessionId, stageIndex, headers) {
 }
 
 function handleIndex(stageIndex) {
-  const links = {
-    0: '<a href="/login">Login</a>',
-    1: '<a href="/api/employees/1">My Profile (ID 1)</a>',
-    2: '<a href="/api/search?q=">Employee Search</a>',
-    3: '<a href="/api/admin/login">Admin Login</a>',
-    4: '<a href="/api/diagnostic?host=localhost">Server Diagnostics</a>',
-    5: '<a href="/shop">PixelMart Store</a>',
-    6: '<a href="/shop/catalog">Product Catalog</a>',
-    7: '<a href="/shop/upload">Seller Upload Portal</a>',
-    8: '<a href="/shop/register">Register Account</a>',
-    9: '<a href="/shop/reset">Password Reset</a>',
-  };
-  const navHtml = stageIndex !== undefined
-    ? links[stageIndex] || ''
-    : Object.values(links).join(' | ');
+  // Per-stage primary CTA card
+  const cta = {
+    0: { href: '/login',                        label: 'Employee Sign-In',       icon: '&#128274;', desc: 'Access your MegaCorp account' },
+    1: { href: '/api/employees/1',              label: 'Employee Directory',      icon: '&#128101;', desc: 'View profiles and contact info' },
+    2: { href: '/api/search?q=',                label: 'People Search',           icon: '&#128269;', desc: 'Find colleagues by name or department' },
+    3: { href: '/api/admin/login',              label: 'Admin Console',           icon: '&#9881;',   desc: 'Restricted — authorized personnel only' },
+    4: { href: '/api/diagnostic?host=localhost',label: 'IT Diagnostics',          icon: '&#128187;', desc: 'Server health and network tools' },
+    5: { href: '/shop',                         label: 'PixelMart Store',         icon: '&#128722;', desc: 'Shop the MegaCorp employee store' },
+    6: { href: '/shop/catalog',                 label: 'Product Catalog',         icon: '&#128230;', desc: 'Browse all available products' },
+    7: { href: '/shop/upload',                  label: 'Seller Portal',           icon: '&#128196;', desc: 'Manage your product listings' },
+    8: { href: '/shop/register',                label: 'Create Account',          icon: '&#128100;', desc: 'Register for a PixelMart account' },
+    9: { href: '/shop/reset',                   label: 'Password Reset',          icon: '&#128273;', desc: 'Recover access to your account' },
+  }[stageIndex] || { href: '/login', label: 'Sign In', icon: '&#128274;', desc: 'Access your account' };
 
   return {
     status: 200,
     headers: { 'Content-Type': 'text/html' },
     body: `<!DOCTYPE html>
 <html>
-<head><title>MegaCorp Portal</title></head>
+<head><title>MegaCorp — Internal Portal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;min-height:100vh;display:flex;flex-direction:column}
+/* Top nav */
+.topbar{background:#1a1a2e;padding:0 32px;display:flex;align-items:center;height:56px;gap:0;justify-content:space-between}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.logo-mark{width:30px;height:30px;background:#e74c3c;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0}
+.logo-text{color:#fff;font-size:15px;font-weight:600;letter-spacing:.3px}
+.topbar-links{display:flex;gap:0}
+.topbar-links a{color:rgba(255,255,255,.55);font-size:13px;padding:0 14px;height:56px;display:flex;align-items:center;text-decoration:none;transition:color .15s}
+.topbar-links a:hover{color:#fff}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.topbar-user{color:rgba(255,255,255,.7);font-size:13px}
+.topbar-avatar{width:30px;height:30px;background:#e74c3c;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+/* Hero */
+.hero{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);padding:52px 32px;text-align:center}
+.hero h1{color:#fff;font-size:28px;font-weight:700;margin-bottom:8px}
+.hero p{color:rgba(255,255,255,.6);font-size:14px;max-width:420px;margin:0 auto 28px}
+.cta-btn{display:inline-flex;align-items:center;gap:8px;background:#e74c3c;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;transition:background .15s}
+.cta-btn:hover{background:#c0392b}
+.cta-icon{font-size:18px}
+/* Quick links grid */
+.section{max-width:900px;margin:0 auto;padding:32px 24px}
+.section-title{font-size:12px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.tile{background:#fff;border-radius:10px;padding:18px;text-decoration:none;color:inherit;box-shadow:0 1px 3px rgba(0,0,0,.08);transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column;gap:6px}
+.tile:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-2px)}
+.tile-icon{font-size:22px}
+.tile-name{font-size:13px;font-weight:600;color:#1a1a2e}
+.tile-desc{font-size:11px;color:#999;line-height:1.4}
+/* Notice banner */
+.notice{background:#fffbe6;border-left:4px solid #f0ad4e;padding:12px 18px;margin:0 24px 0;border-radius:0 6px 6px 0;font-size:12px;color:#856404;max-width:852px;margin:0 auto 0;display:none}
+/* Footer */
+.footer{margin-top:auto;background:#fff;border-top:1px solid #e8e8e8;padding:16px 32px;display:flex;justify-content:space-between;align-items:center}
+.footer p{font-size:11px;color:#bbb}
+.footer-links a{font-size:11px;color:#bbb;text-decoration:none;margin-left:16px}
+.footer-links a:hover{color:#555}
+</style>
+</head>
 <body>
-  <h1>Welcome to MegaCorp Employee Portal</h1>
-  <nav>${navHtml}</nav>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">M</div>
+    <span class="logo-text">MegaCorp</span>
+  </div>
+  <div class="topbar-links">
+    <a href="/">Home</a>
+    <a href="/login">My Account</a>
+    <a href="/api/search?q=">Directory</a>
+    <a href="/api/diagnostic?host=localhost">IT Help</a>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-user">Not signed in</span>
+    <div class="topbar-avatar">?</div>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>Welcome to the MegaCorp Employee Portal</h1>
+  <p>Your central hub for people, tools, and internal resources.</p>
+  <a class="cta-btn" href="${cta.href}">
+    <span class="cta-icon">${cta.icon}</span>${cta.label}
+  </a>
+</div>
+
+<div class="section">
+  <div class="section-title">Quick Access</div>
+  <div class="grid">
+    <a class="tile" href="/login">
+      <span class="tile-icon">&#128274;</span>
+      <span class="tile-name">Sign In</span>
+      <span class="tile-desc">Access your employee account</span>
+    </a>
+    <a class="tile" href="/api/search?q=">
+      <span class="tile-icon">&#128101;</span>
+      <span class="tile-name">People Directory</span>
+      <span class="tile-desc">Find colleagues by name or team</span>
+    </a>
+    <a class="tile" href="/api/diagnostic?host=localhost">
+      <span class="tile-icon">&#128187;</span>
+      <span class="tile-name">IT Support</span>
+      <span class="tile-desc">Network tools &amp; diagnostics</span>
+    </a>
+    <a class="tile" href="/api/admin/login">
+      <span class="tile-icon">&#9881;</span>
+      <span class="tile-name">Admin Console</span>
+      <span class="tile-desc">Restricted — authorized use only</span>
+    </a>
+  </div>
+</div>
+
+<div class="section" style="padding-top:0">
+  <div class="section-title">Announcements</div>
+  <div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden">
+    <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;gap:16px;align-items:flex-start">
+      <div style="background:#e8f4ff;border-radius:6px;padding:8px;font-size:18px;flex-shrink:0">&#128227;</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:3px">Q1 Security Audit — Action Required</div>
+        <div style="font-size:12px;color:#888">All employees must complete the security awareness training by Jan 31. See IT for details.</div>
+        <div style="font-size:11px;color:#bbb;margin-top:4px">Posted by IT Security &middot; Jan 10, 2025</div>
+      </div>
+    </div>
+    <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;gap:16px;align-items:flex-start">
+      <div style="background:#fff0f0;border-radius:6px;padding:8px;font-size:18px;flex-shrink:0">&#128736;</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:3px">Planned Maintenance — Jan 18 2–4 AM</div>
+        <div style="font-size:12px;color:#888">The employee portal will be unavailable during scheduled infrastructure maintenance.</div>
+        <div style="font-size:11px;color:#bbb;margin-top:4px">Posted by DevOps &middot; Jan 12, 2025</div>
+      </div>
+    </div>
+    <div style="padding:16px 20px;display:flex;gap:16px;align-items:flex-start">
+      <div style="background:#f0fff4;border-radius:6px;padding:8px;font-size:18px;flex-shrink:0">&#127881;</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:3px">Welcome to the new portal!</div>
+        <div style="font-size:12px;color:#888">We've migrated to a new platform. Please report any issues to helpdesk@megacorp.internal.</div>
+        <div style="font-size:11px;color:#bbb;margin-top:4px">Posted by Engineering &middot; Jan 8, 2025</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <p>&copy; 2025 MegaCorp Inc. &mdash; Internal use only. Unauthorized access is prohibited.</p>
+  <div class="footer-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">Terms of Use</a>
+    <a href="/api/admin/login">Admin</a>
+  </div>
+</div>
+
 </body>
 </html>`,
   };
