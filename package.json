@@ -5,7 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "DEV_UNLOCK=1 EXTRA_LEVELS=1 node --watch server.js"
+    "dev": "DEV_UNLOCK=1 EXTRA_LEVELS=1 node --watch server.js",
+    "test": "jest --testPathPatterns='tests/(unit|integration)' --forceExit",
+    "test:unit": "jest --testPathPatterns='tests/unit' --forceExit",
+    "test:integration": "jest --testPathPatterns='tests/integration' --forceExit",
+    "test:e2e": "playwright test tests/e2e"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 15000
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
@@ -14,5 +22,10 @@
     "stripe": "^14.0.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "jest": "^30.3.0",
+    "supertest": "^7.2.2"
   }
 }
