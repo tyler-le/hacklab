@@ -22,7 +22,7 @@ class ShellSession {
   constructor(sessionId, currentStage) {
     this.sessionId = sessionId;
     this.currentStage = currentStage;
-    this.cwd = '/var/www/megacorp';
+    this.cwd = currentStage >= 5 ? '/var/www/pixelmart' : '/var/www/megacorp';
     this.fs = new VirtualFS(buildFilesystem(currentStage));
     this.history = [];
     this.sqliteMode = false;
@@ -31,6 +31,7 @@ class ShellSession {
   /** Rebuild the virtual filesystem when the stage changes. */
   setStage(stageIndex) {
     this.currentStage = stageIndex;
+    this.cwd = stageIndex >= 5 ? '/var/www/pixelmart' : '/var/www/megacorp';
     this.fs = new VirtualFS(buildFilesystem(stageIndex));
   }
 

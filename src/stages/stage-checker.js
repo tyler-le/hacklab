@@ -137,7 +137,7 @@ Congratulations — you've completed all 5 stages of HackLab!`,
 
 <span class="highlight">TIP:</span> Browse to <span class="cmd">/shop</span> to start shopping.`,
     hints: [
-      'Read the source: cat /var/www/pixelmart/routes.js — the /shop/orders route reads price directly from req.body without validation.',
+      'Read the source: cat routes.js — the /shop/orders route reads price directly from req.body without validation.',
       'Add the Laptop Pro to your cart at /shop, then open the Request Builder tab. Send POST /shop/orders with the item and price fields.',
       'Exploit: curl -X POST http://portal.megacorp.internal/shop/orders -d "item=Laptop+Pro&price=0.01&quantity=1"',
     ],
@@ -159,7 +159,7 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
 
 <span class="highlight">OBJECTIVE:</span> Read <span class="cmd">../admin/credentials.json</span>. The flag is inside it.
 
-<span class="highlight">TIP:</span> Read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to understand how the file path is constructed.`,
+<span class="highlight">TIP:</span> Read <span class="cmd">cat routes.js</span> to understand how the file path is constructed.`,
     hints: [
       'Look at how the image path is built in routes.js. What happens if the file parameter contains special directory characters?',
       'In Unix, .. means "go up one directory". If the server appends your input to a base path without validation, you can navigate outside it.',
@@ -183,7 +183,7 @@ DEFENSE: After joining paths with path.join(), always call path.resolve() and ve
 
 <span class="highlight">OBJECTIVE:</span> Upload a server-side script file to achieve code execution and retrieve the flag.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/upload</span> and read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to understand how the filter works.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/upload</span> and read <span class="cmd">cat routes.js</span> to understand how the filter works.`,
     hints: [
       'Read routes.js and look at how the upload filter checks the filename. Is the comparison airtight?',
       'The filter uses a denylist of dangerous extensions. Think about edge cases — are all variations of those extensions covered?',
@@ -207,7 +207,7 @@ DEFENSE: Lowercase the entire filename before extension checking. Use an allowli
 
 <span class="highlight">OBJECTIVE:</span> Create an account with admin privileges. Then visit <span class="cmd">/shop/admin</span> to find the flag.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> and read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to understand how account data is handled.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> and read <span class="cmd">cat routes.js</span> to understand how account data is handled.`,
     hints: [
       'Read routes.js and look at how the user object is created from the request body. Is it selective about what it copies?',
       'The registration form only shows some fields — but the server processes everything you send. What fields might exist on a user object that the form does not expose?',
@@ -231,7 +231,7 @@ DEFENSE: Explicitly whitelist allowed fields when creating objects from user inp
 
 <span class="highlight">OBJECTIVE:</span> Poison the reset link for <span class="cmd">admin@pixelmart.com</span> so it points to your server. The flag is in the email preview.
 
-<span class="highlight">TIP:</span> Read <span class="cmd">cat /var/www/pixelmart/routes.js</span> to see how the reset URL is constructed.`,
+<span class="highlight">TIP:</span> Read <span class="cmd">cat routes.js</span> to see how the reset URL is constructed.`,
     hints: [
       'Read routes.js and look at what data is used to build the reset URL. Is any of it attacker-controlled?',
       'HTTP requests contain headers that tell the server where the request came from. One of them is used to build the reset link — and you can set it to anything.',
