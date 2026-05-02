@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "DEV_UNLOCK=1 node --watch server.js"
+    "dev": "DEV_UNLOCK=1 EXTRA_LEVELS=1 node --watch server.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

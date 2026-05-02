@@ -54,6 +54,10 @@ function onGameInit(msg) {
   stageCount = msg.stageCount;
   if (msg.devUnlock) advancedUnlocked = true;
 
+  // Show Request Builder tab only when extra levels are enabled server-side
+  const rbTab = document.getElementById('bpTabRequest');
+  if (rbTab) rbTab.style.display = msg.extraLevels ? '' : 'none';
+
   if (msg.prompt) {
     currentPrompt = msg.prompt;
     updatePromptDisplay();
@@ -476,9 +480,11 @@ function loadInBrowser(path, method, body) {
 function submitUrlbar() {
   const urlInput = document.getElementById('urlbarInput');
   let path = urlInput.value.trim();
-  if (!path) return;
-  // Strip any http://localhost:PORT prefix so we work with just the path
-  path = path.replace(/^https?:\/\/[^\/]+/, '');
+  // Strip full URL prefix if user typed or pasted it
+  path = path.replace(/^https?:\/\/[^/]+/, '');
+  if (!path || path === '/') {
+    path = '/';
+  }
   if (!path.startsWith('/')) path = '/' + path;
 
   urlInput.value = path;

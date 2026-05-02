@@ -6,6 +6,10 @@ const RealShellSession = require('../sandbox/real-shell-session');
 const { escapeHtml } = require('../utils');
 const { handleRequest: handleVirtualWebappRequest } = require('../webapp/vulnerable-app');
 
+// Feature flag: extra levels (6-10) and Request Builder only enabled in dev
+const EXTRA_LEVELS = process.env.EXTRA_LEVELS === '1';
+const PUBLIC_STAGE_COUNT = EXTRA_LEVELS ? getStageCount() : 5;
+
 function getNudge(stageIndex, result, command) {
   const STAGE_IDS = ['intro', 'idor', 'xss', 'sql_injection', 'command_injection',
     'price_tamper', 'path_traversal', 'file_upload', 'mass_assign', 'reset_poison'];
@@ -158,6 +162,8 @@ function handleWebSocket(ws) {
         sessionId = msg.sessionId;
         const state = getGameState(sessionId);
         if (devUnlock) state.advancedUnlocked = true;
+        // Clamp current stage to public count in case flag was toggled
+        if (state.currentStage >= PUBLIC_STAGE_COUNT) state.currentStage = PUBLIC_STAGE_COUNT - 1;
         const stage = getStage(state.currentStage);
         shell = useRealShell
           ? new RealShellSession(sessionId, state.currentStage)
@@ -168,7 +174,8 @@ function handleWebSocket(ws) {
           sessionId,
           currentStage: state.currentStage,
           completedStages: [...state.completedStages],
-          stageCount: getStageCount(),
+          stageCount: PUBLIC_STAGE_COUNT,
+          extraLevels: EXTRA_LEVELS,
           stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
           prompt: shell.getPrompt(),
           devUnlock,
@@ -191,7 +198,8 @@ function handleWebSocket(ws) {
       sessionId,
       currentStage: 0,
       completedStages: [],
-      stageCount: getStageCount(),
+      stageCount: PUBLIC_STAGE_COUNT,
+      extraLevels: EXTRA_LEVELS,
       stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
       prompt: shell.getPrompt(),
       devUnlock,
@@ -212,7 +220,7 @@ function handleWebSocket(ws) {
       send({
         terminalLines: [
           `<span class="info">Current: ${stage.title}</span>`,
-          `<span class="info">Progress: ${state.completedStages.size}/${getStageCount()} stages completed</span>`,
+          `<span class="info">Progress: ${state.completedStages.size}/${PUBLIC_STAGE_COUNT} stages completed</span>`,
         ],
         prompt: shell.getPrompt(),
       });
@@ -222,7 +230,7 @@ function handleWebSocket(ws) {
     if (trimmed === 'next') {
       if (!state.completedStages.has(stageIndex)) {
         send({ terminalLines: ['<span class="err">Complete the current stage first.</span>'], prompt: shell.getPrompt() });
-      } else if (stageIndex >= getStageCount() - 1) {
+      } else if (stageIndex >= PUBLIC_STAGE_COUNT - 1) {
         send({ terminalLines: ['<span class="info">No more stages. Type <span class="cmd">restart</span> to play again.</span>'], prompt: shell.getPrompt() });
       } else {
         const nextStageIndex = stageIndex + 1;

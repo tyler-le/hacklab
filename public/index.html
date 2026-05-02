@@ -82,13 +82,13 @@
         <!-- Panel tab bar -->
         <div class="bp-tab-bar">
           <button class="bp-tab active" id="bpTabBrowser" onclick="switchBrowserPanel('browser')">Browser</button>
-          <button class="bp-tab" id="bpTabRequest" onclick="switchBrowserPanel('request')">&#9654; Request Builder</button>
+          <button class="bp-tab" id="bpTabRequest" onclick="switchBrowserPanel('request')" style="display:none">&#9654; Request Builder</button>
         </div>
 
         <!-- Browser view -->
         <div id="bpBrowserView">
           <div class="urlbar-container">
-            <span class="urlbar-prefix">http://portal.megacorp.internal</span>
+            <span class="urlbar-prefix" onclick="document.getElementById('urlbarInput').value='';submitUrlbar();" title="Go to root" style="cursor:pointer">http://portal.megacorp.internal</span>
             <input type="text" class="urlbar-input" id="urlbarInput" placeholder="/login"
                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                    data-form-type="other" data-lpignore="true"
