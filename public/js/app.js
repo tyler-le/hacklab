@@ -184,11 +184,22 @@ function switchTab(tabName) {
   }
 }
 
+const RB_PLACEHOLDERS = {
+  5: '/shop/orders',
+  6: '/shop/image?file=laptop.jpg',
+  7: '/shop/upload',
+  8: '/shop/register',
+  9: '/shop/reset',
+};
+
 function updateTabsForStage() {
   // All tabs always visible in v2
   stageCompleted = false;
   hintIndex = 0;
   updateMonitorTitle(currentStage);
+  // Update Request Builder URL placeholder for the current stage
+  const rbPath = document.getElementById('rbPath');
+  if (rbPath) rbPath.placeholder = RB_PLACEHOLDERS[currentStage] || '/';
   // Restore the tab that was active when user left this stage, or default to terminal
   switchTab(stageActiveTab[currentStage] || 'terminal');
 }
