@@ -1123,7 +1123,7 @@ body::after {
 }
 
 .paywall-story {
-  color: #aa4444;
+  color: #e08080;
   font-size: 0.85rem;
   line-height: 1.7;
   margin-bottom: 24px;
@@ -1159,7 +1159,7 @@ body::after {
 }
 
 .paywall-name {
-  color: #cc4444;
+  color: #e08080;
   font-size: 0.85rem;
   flex: 1;
 }
@@ -1181,7 +1181,7 @@ body::after {
 }
 
 .paywall-price-label {
-  color: #660000;
+  color: #bb6666;
   font-size: 0.75rem;
   letter-spacing: 0.5px;
 }
@@ -1218,13 +1218,143 @@ body::after {
 }
 
 .paywall-btn.secondary {
-  border-color: #440000;
-  color: #660000;
+  border-color: #663333;
+  color: #cc6666;
 }
 
 .paywall-btn.secondary:hover {
-  border-color: #660000;
-  color: #880000;
+  border-color: #884444;
+  color: #dd8888;
   background: rgba(100, 0, 0, 0.1);
+  box-shadow: none;
+}
+
+/* ===== UNLOCK SUCCESS OVERLAY ===== */
+.unlock-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 9200;
+  overflow-y: auto;
+  padding: 60px 0 40px;
+  animation: fadeIn 0.3s ease;
+}
+
+.unlock-overlay.visible {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.unlock-modal {
+  background: #000a02;
+  border: 2px solid var(--green);
+  border-radius: 12px;
+  padding: 40px 48px;
+  max-width: 520px;
+  width: 90%;
+  margin: auto;
+  box-shadow: 0 0 60px rgba(0, 255, 65, 0.15), 0 0 120px rgba(0, 255, 65, 0.05);
+  animation: slideUp 0.4s ease;
+}
+
+.unlock-badge {
+  display: inline-block;
+  background: var(--green);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  padding: 4px 14px;
+  border-radius: 3px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.unlock-title {
+  color: var(--green);
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+}
+
+.unlock-subtitle {
+  color: var(--green-dim);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.unlock-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 28px;
+  border-top: 1px solid #0a2010;
+  padding-top: 16px;
+}
+
+.unlock-level {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #0a2010;
+}
+
+.unlock-level:last-child {
+  border-bottom: none;
+}
+
+.unlock-num {
+  color: var(--green);
+  font-size: 1rem;
+  font-weight: 700;
+  min-width: 28px;
+  font-family: 'Fira Mono', monospace;
+}
+
+.unlock-name {
+  color: var(--green-dim);
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.unlock-btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.unlock-btn {
+  padding: 12px 20px;
+  background: transparent;
+  border: 2px solid var(--green);
+  border-radius: 6px;
+  color: var(--green);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.unlock-btn:hover {
+  background: rgba(0, 255, 65, 0.1);
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);
+}
+
+.unlock-btn.secondary {
+  border-color: #1a4a2a;
+  color: #3a8a5a;
+}
+
+.unlock-btn.secondary:hover {
+  border-color: #2a6a3a;
+  color: #4aaa6a;
+  background: rgba(0, 100, 40, 0.1);
   box-shadow: none;
 }

@@ -9,6 +9,7 @@ let hintIndex = 0;
 // Advanced pack state — set from server on init, never from localStorage
 let advancedUnlocked = false;
 let extraLevels = false;
+let paywallTargetStage = null;
 const FREE_STAGE_COUNT = 5;
 
 // Per-stage UI state
@@ -218,7 +219,7 @@ function renderStageDots() {
     if (isDone) classes.push('completed');
     if (isActive) classes.push('active');
     const tooltip = isLocked ? title + ' [LOCKED]' : title;
-    return `<div class="${classes.join(' ')}" onclick="${isLocked ? 'showPaywall()' : `jumpToStage(${i})`}">` +
+    return `<div class="${classes.join(' ')}" onclick="${isLocked ? `showPaywall(${i})` : `jumpToStage(${i})`}">` +
       `<span class="stage-tooltip">${tooltip}</span></div>`;
   }).join('');
 }
@@ -228,7 +229,7 @@ function jumpToStage(idx) {
 
   // Check paywall for advanced stages
   if (idx >= FREE_STAGE_COUNT && !advancedUnlocked) {
-    showPaywall();
+    showPaywall(idx);
     return;
   }
 
@@ -326,7 +327,7 @@ function showSuccess(success) {
     btnNext.textContent = 'Continue to Blacksite →';
     btnNext.onclick = () => {
       dismissSuccess();
-      showPaywall();
+      showPaywall(FREE_STAGE_COUNT);
     };
     btnNext.style.display = '';
   } else if (currentStage < stageCount - 1) {
@@ -354,8 +355,9 @@ function dismissSuccess() {
 }
 
 // ========== PAYWALL ==========
-function showPaywall() {
+function showPaywall(targetStage) {
   if (!extraLevels) return;
+  if (targetStage !== undefined) paywallTargetStage = targetStage;
   document.getElementById('paywallOverlay').classList.add('visible');
 }
 
@@ -375,7 +377,9 @@ async function startUnlock() {
     });
     const d = await r.json();
     if (d.url) {
-      window.location.href = d.url;
+      dismissPaywall();
+      window.open(d.url, '_blank');
+      if (btn) { btn.textContent = 'Unlock Operation Blacksite'; btn.disabled = false; }
     } else {
       if (btn) { btn.textContent = 'Unlock Operation Blacksite'; btn.disabled = false; }
       alert(d.error || 'Payment not available. Please try again.');
@@ -386,7 +390,7 @@ async function startUnlock() {
   }
 }
 
-// Handle Stripe return URL
+// Handle Stripe return URL — runs in the payment tab, posts result to opener then closes
 (async function handleStripeReturn() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('payment') === 'success') {
@@ -399,6 +403,12 @@ async function startUnlock() {
           body: JSON.stringify({ session_id: sid, sessionId }),
         });
         const d = await r.json();
+        if (d.unlocked && window.opener) {
+          window.opener.postMessage({ type: 'hacklab-payment-unlocked', stageCount: d.stageCount }, window.location.origin);
+          window.close();
+          return;
+        }
+        // Fallback: no opener (e.g. user copied the URL) — handle inline
         if (d.unlocked) {
           advancedUnlocked = true;
           if (d.stageCount) stageCount = d.stageCount;
@@ -409,6 +419,33 @@ async function startUnlock() {
     renderStageDots();
   }
 })();
+
+// Listen for payment confirmation posted from the Stripe return tab
+window.addEventListener('message', (e) => {
+  if (e.origin !== window.location.origin) return;
+  if (e.data && e.data.type === 'hacklab-payment-unlocked') {
+    advancedUnlocked = true;
+    if (e.data.stageCount) stageCount = e.data.stageCount;
+    renderStageDots();
+    showUnlockSuccess();
+  }
+});
+
+function showUnlockSuccess() {
+  const overlay = document.getElementById('unlockOverlay');
+  if (!overlay) return;
+  const btn = document.getElementById('unlockStartBtn');
+  if (btn) {
+    const target = paywallTargetStage !== null ? paywallTargetStage : FREE_STAGE_COUNT;
+    const label = `Stage ${target + 1}`;
+    btn.textContent = `Start ${label} →`;
+    btn.onclick = () => {
+      overlay.classList.remove('visible');
+      jumpToStage(target);
+    };
+  }
+  overlay.classList.add('visible');
+}
 
 function showCompletion() {
   const allDone = advancedUnlocked
@@ -459,7 +496,7 @@ function showCompletion() {
       ? "You've identified 10 real-world web vulnerabilities. These attacks happen to production systems every day. Now you know how to spot them — and how to defend against them."
       : "These are real vulnerabilities found in production systems every day. Now you know how to spot them — and how to defend against them.";
     const blacksiteBtn = !advancedUnlocked
-      ? `<button class="success-btn" onclick="dismissCompletion(); showPaywall();">Continue to Blacksite &rarr;</button>`
+      ? `<button class="success-btn" onclick="dismissCompletion(); showPaywall(${FREE_STAGE_COUNT});">Continue to Blacksite &rarr;</button>`
       : '';
     footer.innerHTML = `<p>${footerMsg}</p>
       <div class="completion-btn-row">

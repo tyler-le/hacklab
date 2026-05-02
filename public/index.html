@@ -201,6 +201,25 @@
   </div>
 </div>
 
+<div class="unlock-overlay" id="unlockOverlay">
+  <div class="unlock-modal">
+    <div class="unlock-badge">&#9670; OPERATION BLACKSITE UNLOCKED</div>
+    <h2 class="unlock-title">Access Granted.</h2>
+    <p class="unlock-subtitle">Five new vulnerabilities. One acquisition. Zero time to waste.</p>
+    <div class="unlock-levels">
+      <div class="unlock-level"><span class="unlock-num">06</span><span class="unlock-name">Price Manipulation</span></div>
+      <div class="unlock-level"><span class="unlock-num">07</span><span class="unlock-name">Directory Traversal</span></div>
+      <div class="unlock-level"><span class="unlock-num">08</span><span class="unlock-name">File Upload Bypass</span></div>
+      <div class="unlock-level"><span class="unlock-num">09</span><span class="unlock-name">Mass Assignment</span></div>
+      <div class="unlock-level"><span class="unlock-num">10</span><span class="unlock-name">Password Reset Poisoning</span></div>
+    </div>
+    <div class="unlock-btn-row">
+      <button class="unlock-btn secondary" onclick="document.getElementById('unlockOverlay').classList.remove('visible')">&larr; Back to Terminal</button>
+      <button class="unlock-btn" id="unlockStartBtn">Start Stage 6 →</button>
+    </div>
+  </div>
+</div>
+
 <div class="success-overlay" id="successOverlay">
   <div class="success-modal">
     <div class="success-badge">STAGE COMPLETE</div>
