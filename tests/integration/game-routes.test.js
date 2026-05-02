@@ -187,12 +187,12 @@ describe('GET /api/stage/:index', () => {
 
 // ─── Payment endpoints ────────────────────────────────────────────────────────
 describe('POST /api/checkout (paywall)', () => {
-  it('returns 503 when Stripe is not configured', async () => {
+  it('returns 503 while purchases are temporarily disabled', async () => {
     const res = await request(app)
       .post('/api/checkout')
       .send({ sessionId });
     expect(res.status).toBe(503);
-    expect(res.body.error).toMatch(/Payment not configured/);
+    expect(res.body.error).toMatch(/temporarily unavailable/i);
   });
 });
 

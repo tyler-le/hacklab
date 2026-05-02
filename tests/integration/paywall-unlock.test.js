@@ -45,13 +45,14 @@ afterAll(() => {
 });
 
 // ─── Checkout flow ────────────────────────────────────────────────────────────
+// HOTFIX: checkout is temporarily disabled while persistent session storage is implemented.
 describe('POST /api/checkout', () => {
-  it('returns a Stripe checkout URL when configured', async () => {
+  it('returns 503 while purchases are temporarily disabled', async () => {
     const res = await request(app)
       .post('/api/checkout')
       .send({ sessionId });
-    expect(res.status).toBe(200);
-    expect(res.body.url).toContain('checkout.stripe.com');
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/temporarily unavailable/i);
   });
 });
 
