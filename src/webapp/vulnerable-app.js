@@ -1790,7 +1790,7 @@ function handleShopIndex(stageIndex) {
   ];
   const productCards = products.map(p => `
     <div class="pm-product">
-      <div class="pm-product-img">[img: ${escapeHtml(p.img)}]</div>
+      <img class="pm-product-img" src="/shop/image?file=${encodeURIComponent(p.img)}" alt="${escapeHtml(p.name)}" />
       <div class="pm-product-body">
         <div class="pm-product-name">${escapeHtml(p.name)}</div>
         <div class="pm-product-desc">${escapeHtml(p.desc)}</div>
@@ -1809,7 +1809,7 @@ function handleShopIndex(stageIndex) {
 .pm-main{flex-direction:column;align-items:stretch;padding:24px}
 .pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;max-width:900px;margin:0 auto;width:100%}
 .pm-product{background:#120f00;border:1px solid #664400;border-radius:10px;overflow:hidden}
-.pm-product-img{background:#1a1200;height:120px;display:flex;align-items:center;justify-content:center;color:#664400;font-size:12px;font-family:monospace}
+.pm-product-img{background:#1a1200;width:100%;height:120px;object-fit:contain;display:block}
 .pm-product-body{padding:14px}
 .pm-product-name{font-size:14px;font-weight:700;color:#ff9500;margin-bottom:4px}
 .pm-product-desc{font-size:12px;color:#886644;margin-bottom:10px}
@@ -2098,14 +2098,59 @@ pre{background:#0a0a06;border:1px solid #664400;border-radius:8px;padding:16px;c
     };
   }
 
-  // Serve a fake image placeholder for normal requests
-  const knownImages = ['laptop.jpg', 'headphones.jpg', 'phone.jpg', 'usb.jpg'];
+  // Serve SVG images for known product files
+  const PRODUCT_SVGS = {
+    'laptop.jpg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" width="200" height="140">
+      <rect width="200" height="140" fill="#1a1200"/>
+      <rect x="30" y="20" width="140" height="88" rx="6" fill="#2a1f00" stroke="#ff9500" stroke-width="2"/>
+      <rect x="38" y="28" width="124" height="72" rx="3" fill="#0d0900"/>
+      <rect x="48" y="36" width="104" height="56" rx="2" fill="#1a1200"/>
+      <line x1="48" y1="50" x2="152" y2="50" stroke="#ff950033" stroke-width="1"/>
+      <line x1="48" y1="62" x2="120" y2="62" stroke="#ff950033" stroke-width="1"/>
+      <line x1="48" y1="74" x2="135" y2="74" stroke="#ff950033" stroke-width="1"/>
+      <rect x="10" y="108" width="180" height="12" rx="3" fill="#2a1f00" stroke="#ff9500" stroke-width="1.5"/>
+      <rect x="80" y="112" width="40" height="4" rx="2" fill="#ff950066"/>
+      <text x="100" y="90" text-anchor="middle" fill="#ff9500" font-size="10" font-family="monospace" opacity="0.6">LAPTOP PRO</text>
+    </svg>`,
+    'headphones.jpg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" width="200" height="140">
+      <rect width="200" height="140" fill="#1a1200"/>
+      <path d="M60,90 Q60,30 100,30 Q140,30 140,90" fill="none" stroke="#ff9500" stroke-width="5" stroke-linecap="round"/>
+      <rect x="42" y="82" width="22" height="36" rx="8" fill="#2a1f00" stroke="#ff9500" stroke-width="2"/>
+      <rect x="136" y="82" width="22" height="36" rx="8" fill="#2a1f00" stroke="#ff9500" stroke-width="2"/>
+      <rect x="46" y="88" width="14" height="24" rx="5" fill="#ff950033"/>
+      <rect x="140" y="88" width="14" height="24" rx="5" fill="#ff950033"/>
+      <text x="100" y="128" text-anchor="middle" fill="#ff9500" font-size="9" font-family="monospace" opacity="0.6">HEADPHONES</text>
+    </svg>`,
+    'phone.jpg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" width="200" height="140">
+      <rect width="200" height="140" fill="#1a1200"/>
+      <rect x="68" y="10" width="64" height="120" rx="10" fill="#2a1f00" stroke="#ff9500" stroke-width="2"/>
+      <rect x="74" y="22" width="52" height="82" rx="3" fill="#0d0900"/>
+      <circle cx="100" cy="116" r="5" fill="none" stroke="#ff9500" stroke-width="1.5"/>
+      <rect x="88" y="14" width="24" height="4" rx="2" fill="#ff950066"/>
+      <line x1="74" y1="45" x2="126" y2="45" stroke="#ff950033" stroke-width="1"/>
+      <line x1="74" y1="60" x2="110" y2="60" stroke="#ff950033" stroke-width="1"/>
+      <line x1="74" y1="72" x2="118" y2="72" stroke="#ff950033" stroke-width="1"/>
+      <text x="100" y="90" text-anchor="middle" fill="#ff9500" font-size="9" font-family="monospace" opacity="0.6">PIXEL PHONE</text>
+    </svg>`,
+    'usb.jpg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" width="200" height="140">
+      <rect width="200" height="140" fill="#1a1200"/>
+      <rect x="50" y="45" width="100" height="50" rx="8" fill="#2a1f00" stroke="#ff9500" stroke-width="2"/>
+      <rect x="145" y="58" width="20" height="24" rx="3" fill="#2a1f00" stroke="#ff9500" stroke-width="1.5"/>
+      <rect x="148" y="62" width="14" height="16" rx="2" fill="#0d0900"/>
+      <rect x="62" y="55" width="16" height="8" rx="2" fill="#ff950066"/>
+      <rect x="62" y="77" width="16" height="8" rx="2" fill="#ff950044"/>
+      <rect x="84" y="58" width="50" height="4" rx="1" fill="#ff950033"/>
+      <rect x="84" y="66" width="35" height="4" rx="1" fill="#ff950033"/>
+      <rect x="84" y="74" width="42" height="4" rx="1" fill="#ff950033"/>
+      <text x="100" y="115" text-anchor="middle" fill="#ff9500" font-size="9" font-family="monospace" opacity="0.6">256GB USB DRIVE</text>
+    </svg>`,
+  };
   const basename = resolvedStr.split('/').pop();
-  if (knownImages.includes(basename) && resolvedStr.startsWith(BASE_DIR)) {
+  if (PRODUCT_SVGS[basename] && resolvedStr.startsWith(BASE_DIR)) {
     return {
       status: 200,
-      headers: { 'Content-Type': 'text/html' },
-      body: `<!DOCTYPE html><html><head><style>body{background:#1a1200;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:monospace;color:#664400;font-size:12px}</style></head><body>[img: ${escapeHtml(basename)}]</body></html>`,
+      headers: { 'Content-Type': 'image/svg+xml' },
+      body: PRODUCT_SVGS[basename],
     };
   }
 

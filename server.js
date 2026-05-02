@@ -28,6 +28,12 @@ app.use('/api', gameRoutes);
 
 // Webapp routes — serves HTML for the Browser tab iframe.
 // Proxies requests to the vulnerable app so curl and the iframe see the same responses.
+// Serve PixelMart product images directly so <img> tags inside iframes resolve correctly
+app.get('/shop/image', (req, res) => {
+  const result = handleWebappRequest('GET', '/shop/image' + (req._parsedUrl.search || ''), null, 'static', 5, {});
+  res.status(result.status).set(result.headers || {}).send(result.body);
+});
+
 app.all('/webapp/*', (req, res) => {
   const reqPath = req.params[0] ? '/' + req.params[0] : '/';
   const sessionId = req.query.sessionId || req.body?.sessionId;
