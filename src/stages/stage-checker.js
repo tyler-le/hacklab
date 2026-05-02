@@ -207,7 +207,7 @@ DEFENSE: Lowercase the entire filename before extension checking. Use an allowli
 
 <span class="highlight">OBJECTIVE:</span> Create an account with admin privileges. Then visit <span class="cmd">/shop/admin</span> to find the flag.
 
-<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> and read <span class="cmd">cat routes.js</span> to understand how account data is handled.`,
+<span class="highlight">TIP:</span> Visit <span class="cmd">/shop/register</span> and read <span class="cmd">cat routes.js</span> to understand how account data is handled. The browser form alone may not be enough — you might need curl or the Request Builder.`,
     hints: [
       'Read routes.js and look at how the user object is created from the request body. Is it selective about what it copies?',
       'The registration form only shows some fields — but the server processes everything you send. What fields might exist on a user object that the form does not expose?',
