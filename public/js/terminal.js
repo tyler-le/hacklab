@@ -68,14 +68,6 @@ function onGameInit(msg) {
   document.getElementById('missionText').innerHTML = msg.stage.mission;
   const fi = document.getElementById('flagInput'); if (fi && msg.stage.flagPrompt) fi.placeholder = msg.stage.flagPrompt;
 
-  // Auto-load the relevant starting page in the browser panel
-  const startPaths = ['/login', '/', '/api/search?q=', '/api/admin/login', '/api/diagnostic?host=localhost',
-                      '/shop', '/shop/catalog', '/shop/upload', '/shop/register', '/shop/reset'];
-  const startPath = startPaths[msg.currentStage] || '/';
-  const urlInput = document.getElementById('urlbarInput');
-  if (urlInput) urlInput.value = startPath;
-  loadInBrowser(startPath);
-
   // Sync advanced unlock state to server
   if (typeof advancedUnlocked !== 'undefined' && advancedUnlocked && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'setUnlocked' }));
