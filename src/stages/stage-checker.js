@@ -231,7 +231,7 @@ DEFENSE: Explicitly whitelist allowed fields when creating objects from user inp
 
 <span class="highlight">OBJECTIVE:</span> Poison the reset link for <span class="cmd">admin@pixelmart.com</span> so it points to your server. The flag is in the email preview.
 
-<span class="highlight">TIP:</span> Read <span class="cmd">cat routes.js</span> to see how the reset URL is constructed.`,
+<span class="highlight">TIP:</span> Read <span class="cmd">cat routes.js</span> to see how the reset URL is constructed. The browser alone won't be enough — you'll need curl or the Request Builder to control request headers.`,
     hints: [
       'Read routes.js and look at what data is used to build the reset URL. Is any of it attacker-controlled?',
       'HTTP requests contain headers that tell the server where the request came from. One of them is used to build the reset link — and you can set it to anything.',
