@@ -155,7 +155,7 @@ DEFENSE: Never trust client-supplied prices. Look up the price server-side from 
   {
     id: 'path_traversal',
     title: 'Stage 7: Directory Traversal',
-    mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=</span> — but the file parameter is never validated against the intended directory.
+    mission: `<span class="highlight">SCENARIO:</span> PixelMart serves product images via <span class="cmd">/shop/image?file=laptop.jpg</span> — but the file parameter is never validated against the intended directory.
 
 <span class="highlight">OBJECTIVE:</span> Read the admin credentials file. The flag is inside it.
 
