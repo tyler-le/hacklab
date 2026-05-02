@@ -131,11 +131,11 @@ Congratulations — you've completed all 5 stages of HackLab!`,
   {
     id: 'price_tamper',
     title: 'Stage 6: Price Manipulation',
-    mission: `<span class="highlight">SCENARIO:</span> MegaCorp just acquired <span class="cmd">PixelMart</span>, a rushed e-commerce startup. Their order endpoint at <span class="cmd">POST /shop/orders</span> trusts the <span class="cmd">price</span> field sent directly from the browser — zero server-side validation.
+    mission: `<span class="highlight">SCENARIO:</span> MegaCorp just acquired <span class="cmd">PixelMart</span>, a rushed e-commerce startup. Their dev team cut corners — and it shows.
 
-<span class="highlight">OBJECTIVE:</span> Buy a Laptop Pro ($999) for just $0.01 by manipulating the price in the POST body. Find the Transaction ID on the confirmation page and <span class="cmd">submit</span> it.
+<span class="highlight">OBJECTIVE:</span> Buy a Laptop Pro for just $0.01. Find the Transaction ID on the confirmation page and <span class="cmd">submit</span> it.
 
-<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop</span> in the Browser tab, add the Laptop Pro to your cart, then intercept the order request using the Request Builder.`,
+<span class="highlight">TIP:</span> Browse to <span class="cmd">/shop</span> to start shopping.`,
     hints: [
       'Read the source: cat /var/www/pixelmart/routes.js — the /shop/orders route reads price directly from req.body without validation.',
       'Add the Laptop Pro to your cart at /shop, then open the Request Builder tab. Send POST /shop/orders with the item and price fields.',

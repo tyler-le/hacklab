@@ -86,7 +86,6 @@ function handleRequest(method, url, body, sessionId, stageIndex, headers) {
   // --- PixelMart routes (Advanced Pack stages 6-10) ---
   if (route === '/shop' || route === '/shop/') return handleShopIndex(stageIndex);
   if (route === '/shop/catalog') return handleShopCatalog(stageIndex);
-  if (route === '/shop/cart' && method === 'POST') return handleShopAddToCart(postData, stageIndex);
   if (route === '/shop/cart') return handleShopCartPage(query, stageIndex);
   if (route === '/shop/orders' && method === 'POST') return handleShopPlaceOrder(postData, stageIndex);
   if (route === '/shop/image') return handleShopImage(query, stageIndex);
@@ -1796,11 +1795,7 @@ function handleShopIndex(stageIndex) {
         <div class="pm-product-name">${escapeHtml(p.name)}</div>
         <div class="pm-product-desc">${escapeHtml(p.desc)}</div>
         <div class="pm-product-price">$${p.price}</div>
-        <form method="POST" action="/shop/cart" style="margin:0">
-          <input type="hidden" name="item" value="${escapeHtml(p.name)}" />
-          <input type="hidden" name="price" value="${p.price}" />
-          <button type="submit" class="pm-btn-sm">Add to Cart</button>
-        </form>
+        <a class="pm-btn-sm" href="/shop/cart?item=${encodeURIComponent(p.name)}&price=${p.price}">Add to Cart</a>
       </div>
     </div>`).join('');
 
@@ -1841,16 +1836,6 @@ function handleShopIndex(stageIndex) {
 <div class="pm-footer">PixelMart &copy; 2025 &mdash; A MegaCorp Company</div>
 </body>
 </html>`,
-  };
-}
-
-function handleShopAddToCart(postData, stageIndex) {
-  const item = postData.item || 'Laptop Pro';
-  const price = postData.price || '999';
-  return {
-    status: 302,
-    headers: { 'Location': `/shop/cart?item=${encodeURIComponent(item)}&price=${encodeURIComponent(price)}` },
-    body: '',
   };
 }
 
