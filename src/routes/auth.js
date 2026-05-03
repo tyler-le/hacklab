@@ -193,7 +193,10 @@ router.get('/me', (req, res) => {
 
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'lax' });
+  // secure must match the attribute used when the cookie was set, otherwise
+  // the browser treats them as different cookies and ignores the clear.
+  const isSecure = !!process.env.RAILWAY_ENVIRONMENT;
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'lax', secure: isSecure });
   res.json({ ok: true });
 });
 
