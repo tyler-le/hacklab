@@ -1530,3 +1530,27 @@ body::after {
   color: #3a5a3a;
   text-align: center;
 }
+
+.auth-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: #0f1f0f;
+  border: 1px solid #2a5a2a;
+  color: var(--green);
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 4px;
+  z-index: 9500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  white-space: nowrap;
+}
+
+.auth-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

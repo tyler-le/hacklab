@@ -641,10 +641,20 @@ async function initAuth() {
   // the cookie on connect, so no reconnect is needed.
   if (_authInitialized && prevId !== newId && newId !== null) {
     reconnectWebSocket();
+    showAuthToast(`✓ Signed in as ${currentUser.email}`);
   }
   _authInitialized = true;
 
   renderAuthState();
+}
+
+function showAuthToast(message) {
+  const el = document.getElementById('authToast');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add('visible');
+  clearTimeout(showAuthToast._timer);
+  showAuthToast._timer = setTimeout(() => el.classList.remove('visible'), 3000);
 }
 
 function renderAuthState() {
