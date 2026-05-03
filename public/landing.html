@@ -398,13 +398,14 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  max-width: 680px;
 }
 .tier {
   background: var(--bg2);
   border: 1px solid var(--border-mid);
   border-radius: 4px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .tier.blacksite { border-color: rgba(255,149,0,0.35); }
 .tier-header {
@@ -426,6 +427,7 @@ body {
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 2;
+  flex: 1;
 }
 .tier-line { display: flex; gap: 10px; }
 .tier-line .key { color: #6a9a7a; flex-shrink: 0; }
