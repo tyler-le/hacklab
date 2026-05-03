@@ -621,24 +621,26 @@ function stopCrossTabAuthWatch() {
   if (_crossTabAuthCleanup) { _crossTabAuthCleanup(); _crossTabAuthCleanup = null; }
 }
 
-// Detect magic-link return: this tab was opened by the email client after the
-// user clicked the link. Signal the original game tab, then try to close.
-(function handleAuthReturn() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('auth') !== 'success') return;
-  window.history.replaceState({}, '', window.location.pathname + (params.get('unlock') === '1' ? '?unlock=1' : ''));
-  localStorage.setItem('hacklab-auth-event', Date.now().toString());
-  window.close();
-  // window.close() is silently ignored for tabs not opened via window.open().
-  // The tab stays open; initAuth() below will still sign the user in here.
-})();
 
 async function initAuth() {
+  const prevUser = currentUser;
   try {
     const r = await fetch('/api/auth/me');
     const d = await r.json();
     currentUser = d.user;
   } catch { currentUser = null; }
+
+  // When the user signs in while the WS is already open, the server's WS
+  // handler still has userId=null from when the connection was established.
+  // That means saveUserProgress() is never called and loadUserProgress() is
+  // never used. Reconnecting forces the server to re-read the JWT cookie so
+  // the correct userId is captured for all subsequent Turso reads/writes.
+  const prevId = prevUser ? prevUser.id : null;
+  const newId = currentUser ? currentUser.id : null;
+  if (prevId !== newId && newId !== null) {
+    reconnectWebSocket();
+  }
+
   renderAuthState();
 }
 
@@ -696,9 +698,7 @@ async function sendMagicLink() {
     return;
   }
 
-  const baseRedirect = overlay.dataset.redirectTo || '/play';
-  const sep = baseRedirect.includes('?') ? '&' : '?';
-  const redirectTo = `${baseRedirect}${sep}auth=success`;
+  const redirectTo = overlay.dataset.redirectTo || '/play';
   btn.textContent = 'Sending...';
   btn.disabled = true;
 

@@ -155,8 +155,22 @@ router.get('/verify', async (req, res) => {
       maxAge: COOKIE_MAX_AGE_MS,
     });
 
-    const redirectTo = next || '/play';
-    res.redirect(redirectTo);
+    // Return to a safe relative URL only (prevents open-redirect)
+    const returnUrl = (next && next.startsWith('/')) ? next : '/play';
+    // Minimal self-closing page: writes the cross-tab auth signal then closes.
+    // If window.close() is blocked (email clients usually block it), the user
+    // sees a single-line "signed in" message with a link back to the game.
+    res.type('html').send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>HackLab — Signed In</title></head>
+<body style="margin:0;background:#0a0f0a;display:flex;align-items:center;justify-content:center;height:100vh;font-family:monospace">
+<p style="color:#4ec94e;font-size:1rem">
+  Signed in.&nbsp;<a href="${returnUrl.replace(/"/g, '%22')}" style="color:#4ec94e">Return to HackLab &rarr;</a>
+</p>
+<script>
+try { localStorage.setItem('hacklab-auth-event', String(Date.now())); } catch(e) {}
+window.close();
+</script>
+</body></html>`);
   } catch (err) {
     console.error('[auth] verify error:', err.message);
     res.status(500).send('Verification failed');

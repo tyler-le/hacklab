@@ -198,51 +198,52 @@ describe('GET /api/auth/verify', () => {
       .mockResolvedValueOnce({ rows: [{ id: 'u1', email: 'test@example.com' }] });                        // SELECT user
   }
 
-  it('sets JWT cookie and redirects to /play on valid token', async () => {
+  it('sets JWT cookie and returns self-closing HTML on valid token', async () => {
     const now = Math.floor(Date.now() / 1000);
     mockVerifySuccess(now);
 
     const app = buildApp();
     const res = await request(app).get('/api/auth/verify?token=tok');
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/play');
+    expect(res.status).toBe(200);
+    expect(res.type).toMatch(/html/);
+    // Cookie must be set
     const setCookie = res.headers['set-cookie'];
     expect(setCookie).toBeTruthy();
     expect(setCookie.some(c => c.startsWith('hacklab_token='))).toBe(true);
+    // HTML must write the cross-tab storage event and call window.close()
+    expect(res.text).toContain('hacklab-auth-event');
+    expect(res.text).toContain('window.close()');
   });
 
-  it('redirects to the next param when provided', async () => {
+  it('return link defaults to /play when no next param is given', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    mockVerifySuccess(now);
+
+    const app = buildApp();
+    const res = await request(app).get('/api/auth/verify?token=tok');
+    expect(res.text).toContain('href="/play"');
+  });
+
+  it('return link uses the next param when provided', async () => {
     const now = Math.floor(Date.now() / 1000);
     mockVerifySuccess(now);
 
     const app = buildApp();
     const res = await request(app).get('/api/auth/verify?token=tok&next=%2Fplay%3Funlock%3D1');
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/play?unlock=1');
+    expect(res.text).toContain('href="/play?unlock=1"');
   });
 
-  it('preserves ?auth=success in the redirect URL (cross-tab signal)', async () => {
-    // sendMagicLink() appends ?auth=success to the next URL so the landing tab
-    // can write a localStorage event that the original game tab picks up.
+  it('rejects non-relative next params (open-redirect guard)', async () => {
     const now = Math.floor(Date.now() / 1000);
     mockVerifySuccess(now);
 
     const app = buildApp();
     const res = await request(app)
-      .get('/api/auth/verify?token=tok&next=%2Fplay%3Fauth%3Dsuccess');
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/play?auth=success');
-  });
-
-  it('preserves both unlock and auth=success params in the redirect', async () => {
-    const now = Math.floor(Date.now() / 1000);
-    mockVerifySuccess(now);
-
-    const app = buildApp();
-    const res = await request(app)
-      .get('/api/auth/verify?token=tok&next=%2Fplay%3Funlock%3D1%26auth%3Dsuccess');
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/play?unlock=1&auth=success');
+      .get('/api/auth/verify?token=tok&next=https%3A%2F%2Fevil.com');
+    expect(res.status).toBe(200);
+    // Falls back to /play, not the external URL
+    expect(res.text).toContain('href="/play"');
+    expect(res.text).not.toContain('evil.com');
   });
 
   it('JWT in the cookie is valid and contains the user id and email', async () => {

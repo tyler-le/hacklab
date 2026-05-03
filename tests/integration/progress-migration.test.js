@@ -473,7 +473,7 @@ describe('GET /api/auth/verify — full happy path and edge cases', () => {
     return app;
   }
 
-  it('sets JWT cookie and redirects to /play on valid token', async () => {
+  it('sets JWT cookie and returns self-closing HTML on valid token', async () => {
     const now = Math.floor(Date.now() / 1000);
     mockTursoExecute
       .mockResolvedValueOnce({ rows: [{ user_id: 'u-123', expires_at: now + 900, used: 0 }] }) // token lookup
@@ -483,14 +483,16 @@ describe('GET /api/auth/verify — full happy path and edge cases', () => {
     const app = buildAuthApp();
     const res = await request(app).get('/api/auth/verify?token=valid-token');
 
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/play');
+    expect(res.status).toBe(200);
+    expect(res.type).toMatch(/html/);
+    expect(res.text).toContain('hacklab-auth-event');
+    expect(res.text).toContain('window.close()');
     const setCookie = res.headers['set-cookie'];
     expect(setCookie).toBeTruthy();
     expect(setCookie.some(c => c.includes('hacklab_token='))).toBe(true);
   });
 
-  it('respects the next param in redirect', async () => {
+  it('return link uses the next param when provided', async () => {
     const now = Math.floor(Date.now() / 1000);
     mockTursoExecute
       .mockResolvedValueOnce({ rows: [{ user_id: 'u-123', expires_at: now + 900, used: 0 }] })
@@ -500,8 +502,8 @@ describe('GET /api/auth/verify — full happy path and edge cases', () => {
     const app = buildAuthApp();
     const res = await request(app).get('/api/auth/verify?token=valid-token&next=/play%3Funlock%3D1');
 
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/play?unlock=1');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('href="/play?unlock=1"');
   });
 
   it('rejects tokens used more than once', async () => {

@@ -87,6 +87,12 @@ function sendReset() {
   }
 }
 
+// Force the WS to reconnect so the server re-reads the JWT cookie and picks
+// up the correct userId. Call this after sign-in so Turso progress loads.
+function reconnectWebSocket() {
+  if (ws) ws.close();
+}
+
 function onGameInit(msg) {
   currentStage = msg.currentStage;
   completedStages = new Set(msg.completedStages);
