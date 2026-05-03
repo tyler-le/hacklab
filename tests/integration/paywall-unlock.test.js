@@ -42,6 +42,9 @@ beforeAll(() => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use('/api', gameRouter);
+  // Mount auth routes so sign-out tests can call /api/auth/*
+  const authRouter = require('../../src/routes/auth');
+  app.use('/api/auth', authRouter);
 });
 
 beforeEach(async () => {
@@ -190,5 +193,52 @@ describe('POST /api/verify-payment — unpaid / failed payment', () => {
       .send({ session_id: 'cs_test_unpaid', sessionId });
     const state = getGameState(sessionId);
     expect(state.advancedUnlocked).toBeFalsy();
+  });
+});
+
+// ─── Sign-out revokes access ──────────────────────────────────────────────────
+// The client calls signOut() which POSTs /api/auth/logout to clear the JWT
+// cookie, then resets advancedUnlocked = false and stageCount = FREE_STAGE_COUNT.
+// These tests verify the server-side contract that drives that client reset.
+describe('sign-out revokes authenticated state', () => {
+  it('POST /api/auth/logout clears the JWT cookie', async () => {
+    const res = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', makeAuthCookie());
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    const setCookie = res.headers['set-cookie'];
+    expect(setCookie).toBeTruthy();
+    expect(setCookie.some(c => c.includes('hacklab_token=') && c.includes('Expires='))).toBe(true);
+  });
+
+  it('GET /api/auth/me returns null after sign-out', async () => {
+    // Sign out to clear the cookie
+    const logoutRes = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', makeAuthCookie());
+    // Extract the cleared cookie value from Set-Cookie (value will be empty)
+    const clearedCookie = logoutRes.headers['set-cookie'][0].split(';')[0]; // e.g. "hacklab_token="
+
+    const meRes = await request(app)
+      .get('/api/auth/me')
+      .set('Cookie', clearedCookie);
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.user).toBeNull();
+  });
+
+  it('POST /api/checkout returns 401 after sign-out', async () => {
+    // Unlock via payment while authenticated
+    await request(app)
+      .post('/api/verify-payment')
+      .set('Cookie', makeAuthCookie())
+      .send({ session_id: 'cs_paid', sessionId });
+
+    // Attempt checkout after sign-out (no cookie)
+    const res = await request(app)
+      .post('/api/checkout')
+      .send({ sessionId });
+    expect(res.status).toBe(401);
+    expect(res.body.requiresAuth).toBe(true);
   });
 });

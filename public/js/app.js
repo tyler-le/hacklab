@@ -691,7 +691,10 @@ async function sendMagicLink() {
 async function signOut() {
   await fetch('/api/auth/logout', { method: 'POST' });
   currentUser = null;
+  advancedUnlocked = false;
+  stageCount = FREE_STAGE_COUNT;
   renderAuthState();
+  renderStageDots();
 }
 
 async function saveProgressToServer() {
