@@ -26,9 +26,8 @@ function ensureSessionsDir() {
 
 function createTemplate() {
   ensureSessionsDir();
-  if (fs.existsSync(TEMPLATE_PATH)) {
-    fs.unlinkSync(TEMPLATE_PATH);
-  }
+  // In test runs multiple files call createTemplate() in parallel — skip if already exists
+  if (fs.existsSync(TEMPLATE_PATH)) return;
   const db = new Database(TEMPLATE_PATH);
   const seed = fs.readFileSync(SEED_PATH, 'utf-8');
   db.exec(seed);
