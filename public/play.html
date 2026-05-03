@@ -21,6 +21,11 @@
     <a href="/" class="logo">HACK<span>LAB</span></a>
     <div class="controls">
       <div class="conn-status" id="connStatus" style="display:none"></div>
+      <div class="auth-status" id="authStatus" style="display:none">
+        <span class="auth-email" id="authEmail"></span>
+        <button class="auth-btn secondary" onclick="signOut()">Sign out</button>
+      </div>
+      <button class="auth-btn" id="signInBtn" onclick="showAuthModal('save')" style="display:none">Sign in</button>
       <a class="coffee-btn" href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">☕ Buy me a coffee</a>
       <button class="hint-btn" onclick="requestHint()">HINT</button>
       <div class="stage-indicator" id="stageIndicator"></div>
@@ -183,6 +188,24 @@
 <!-- Hidden tab content stubs so existing JS references don't break -->
 <div id="tabTerminal" style="display:none"></div>
 <div id="tabUrlbar" style="display:none"></div>
+
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-modal">
+    <button class="auth-modal-close" onclick="dismissAuthModal()">&#x2715;</button>
+    <div class="auth-modal-badge">// hacklab.auth</div>
+    <h2 class="auth-modal-title" id="authModalTitle">Sign in to HackLab</h2>
+    <p class="auth-modal-sub" id="authModalSub">Progress is saved to your account and works across devices and server restarts.</p>
+    <div id="authModalForm">
+      <input type="email" id="authEmailInput" class="auth-email-input" placeholder="your@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')sendMagicLink()">
+      <button class="auth-submit-btn" id="authSubmitBtn" onclick="sendMagicLink()">Send sign-in link</button>
+    </div>
+    <div id="authModalSent" style="display:none">
+      <div class="auth-sent-icon">&#x2713;</div>
+      <p class="auth-sent-msg">Check your email &mdash; a sign-in link is on its way.<br><span style="color:var(--text-dim);font-size:13px">Link expires in 15 minutes.</span></p>
+    </div>
+    <p class="auth-modal-note">No password. One-time link. Free forever.</p>
+  </div>
+</div>
 
 <div class="paywall-overlay" id="paywallOverlay">
   <div class="paywall-modal">

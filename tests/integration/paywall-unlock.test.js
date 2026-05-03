@@ -12,18 +12,31 @@ jest.mock('stripe', () => {
   }));
 });
 
+// Mock turso so game.js verify-payment doesn't fail when no Turso is configured
+jest.mock('../../src/db/turso', () => ({ getTursoClient: () => null }));
+
+const jwt = require('jsonwebtoken');
 const request = require('supertest');
 const express = require('express');
 const sessionManager = require('../../src/db/session-manager');
 const gameRouter = require('../../src/routes/game');
 const { getGameState } = require('../../src/routes/game');
 
+const JWT_SECRET = 'test-paywall-secret';
+
 let app;
 let sessionId;
+
+function makeAuthCookie() {
+  const token = jwt.sign({ userId: 'u-paywall', email: 'paywall@test.com' }, JWT_SECRET, { expiresIn: '1d' });
+  return `hacklab_token=${token}`;
+}
 
 beforeAll(() => {
   sessionManager.createTemplate();
   process.env.STRIPE_SECRET_KEY = 'sk_test_fake_key';
+  process.env.JWT_SECRET = JWT_SECRET;
+  process.env.TURSO_URL = ''; // ensure Turso is disabled in tests
 
   app = express();
   app.use(express.json());
@@ -42,13 +55,23 @@ afterEach(() => {
 
 afterAll(() => {
   delete process.env.STRIPE_SECRET_KEY;
+  delete process.env.JWT_SECRET;
 });
 
 // ─── Checkout flow ────────────────────────────────────────────────────────────
 describe('POST /api/checkout', () => {
-  it('returns a Stripe checkout URL when configured', async () => {
+  it('returns 401 with requiresAuth: true when no auth cookie', async () => {
     const res = await request(app)
       .post('/api/checkout')
+      .send({ sessionId });
+    expect(res.status).toBe(401);
+    expect(res.body.requiresAuth).toBe(true);
+  });
+
+  it('returns a Stripe checkout URL when authenticated', async () => {
+    const res = await request(app)
+      .post('/api/checkout')
+      .set('Cookie', makeAuthCookie())
       .send({ sessionId });
     expect(res.status).toBe(200);
     expect(res.body.url).toContain('checkout.stripe.com');

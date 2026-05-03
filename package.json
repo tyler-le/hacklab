@@ -16,9 +16,12 @@
     "testTimeout": 15000
   },
   "dependencies": {
+    "@libsql/client": "^0.17.3",
     "better-sqlite3": "^11.7.0",
     "dotenv": "^17.4.2",
     "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.3",
+    "resend": "^6.12.2",
     "stripe": "^14.0.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"

@@ -1,4 +1,8 @@
 'use strict';
+
+// Mock turso so game.js doesn't need a real DB connection
+jest.mock('../../src/db/turso', () => ({ getTursoClient: () => null }));
+
 const request = require('supertest');
 const express = require('express');
 const sessionManager = require('../../src/db/session-manager');
@@ -187,12 +191,12 @@ describe('GET /api/stage/:index', () => {
 
 // ─── Payment endpoints ────────────────────────────────────────────────────────
 describe('POST /api/checkout (paywall)', () => {
-  it('returns 503 when Stripe is not configured', async () => {
+  it('returns 401 when not authenticated', async () => {
     const res = await request(app)
       .post('/api/checkout')
       .send({ sessionId });
-    expect(res.status).toBe(503);
-    expect(res.body.error).toMatch(/Payment not configured/);
+    expect(res.status).toBe(401);
+    expect(res.body.requiresAuth).toBe(true);
   });
 });
 

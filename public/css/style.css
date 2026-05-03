@@ -1371,3 +1371,162 @@ body::after {
   background: rgba(0, 100, 40, 0.1);
   box-shadow: none;
 }
+
+/* ========== AUTH UI ========== */
+.auth-status {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.auth-email {
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  font-size: 12px;
+  color: #4a7a4a;
+}
+
+.auth-btn {
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  background: var(--green);
+  color: #000;
+  border: none;
+  font-weight: 700;
+  transition: opacity 0.15s;
+}
+
+.auth-btn:hover { opacity: 0.85; }
+
+.auth-btn.secondary {
+  background: transparent;
+  border: 1px solid #2a4a2a;
+  color: #4a7a4a;
+}
+
+.auth-btn.secondary:hover {
+  border-color: #3a6a3a;
+  color: #6aaa6a;
+}
+
+/* ========== AUTH MODAL ========== */
+.auth-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9200;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.auth-overlay.visible {
+  display: flex;
+}
+
+.auth-modal {
+  background: #0f0f0f;
+  border: 1px solid #1a3a1a;
+  border-radius: 6px;
+  padding: 32px;
+  max-width: 420px;
+  width: 90%;
+  position: relative;
+  animation: slideUp 0.3s ease;
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #4a7a4a;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+
+.auth-modal-close:hover { color: var(--green); }
+
+.auth-modal-badge {
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--green-dim);
+  margin-bottom: 12px;
+}
+
+.auth-modal-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.auth-modal-sub {
+  font-size: 14px;
+  color: #4a7a4a;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.auth-email-input {
+  width: 100%;
+  background: #0a0a0a;
+  border: 1px solid #1a3a1a;
+  border-radius: 3px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #fff;
+  font-family: inherit;
+  margin-bottom: 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.auth-email-input:focus { border-color: var(--green); }
+
+.auth-email-input::placeholder { color: #3a5a3a; }
+
+.auth-submit-btn {
+  width: 100%;
+  background: var(--green);
+  color: #000;
+  font-weight: 800;
+  font-size: 14px;
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  padding: 11px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.auth-submit-btn:hover { opacity: 0.85; }
+.auth-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.auth-sent-icon {
+  font-size: 32px;
+  color: var(--green);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.auth-sent-msg {
+  text-align: center;
+  color: #fff;
+  line-height: 1.7;
+}
+
+.auth-modal-note {
+  margin-top: 20px;
+  font-family: 'Fira Mono', 'Courier New', monospace;
+  font-size: 11px;
+  color: #3a5a3a;
+  text-align: center;
+}

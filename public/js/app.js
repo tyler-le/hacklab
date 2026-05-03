@@ -12,6 +12,8 @@ let extraLevels = false;
 let paywallTargetStage = null;
 const FREE_STAGE_COUNT = 5;
 
+let currentUser = null; // { id, email } or null
+
 // Per-stage UI state
 const stageTerminalHistory = {};
 const stageQueryHistory = {};
@@ -307,6 +309,7 @@ function jumpToStage(idx) {
       currentStage = data.currentStage;
       completedStages = new Set(data.completedStages);
       saveProgress();
+      saveProgressToServer();
       renderStageDots();
       document.getElementById('missionText').innerHTML = data.stage.mission;
       const fi = document.getElementById('flagInput');
@@ -417,7 +420,11 @@ function dismissSuccess() {
 // ========== PAYWALL ==========
 function showPaywall(targetStage) {
   if (!extraLevels) return;
-  if (targetStage !== undefined) paywallTargetStage = targetStage;
+  if (!currentUser) {
+    showAuthModal('unlock', '/play?unlock=1');
+    return;
+  }
+  paywallTargetStage = targetStage !== undefined ? targetStage : null;
   document.getElementById('paywallOverlay').classList.add('visible');
 }
 
@@ -476,6 +483,7 @@ async function startUnlock() {
           advancedUnlocked = true;
           if (d.stageCount) stageCount = d.stageCount;
           saveProgress();
+          saveProgressToServer();
         }
       } catch (e) { /* silently fail */ }
     }
@@ -496,6 +504,7 @@ window.addEventListener('message', (e) => {
       localStorage.setItem('hacklab-progress', JSON.stringify(p));
     }
     saveProgress();
+    saveProgressToServer();
     renderStageDots();
     showUnlockSuccess();
   }
@@ -589,6 +598,120 @@ function restartFromCompletion() {
   dismissCompletion();
   sendCommand('restart');
 }
+
+// ========== AUTH ==========
+async function initAuth() {
+  try {
+    const r = await fetch('/api/auth/me');
+    const d = await r.json();
+    currentUser = d.user;
+  } catch { currentUser = null; }
+  renderAuthState();
+}
+
+function renderAuthState() {
+  const authStatus = document.getElementById('authStatus');
+  const signInBtn = document.getElementById('signInBtn');
+  const authEmailEl = document.getElementById('authEmail');
+
+  if (currentUser) {
+    if (authStatus) { authStatus.style.display = ''; }
+    if (authEmailEl) authEmailEl.textContent = currentUser.email;
+    if (signInBtn) signInBtn.style.display = 'none';
+  } else {
+    if (authStatus) authStatus.style.display = 'none';
+    if (signInBtn) signInBtn.style.display = '';
+  }
+}
+
+function showAuthModal(reason, redirectTo) {
+  const overlay = document.getElementById('authOverlay');
+  const title = document.getElementById('authModalTitle');
+  const sub = document.getElementById('authModalSub');
+  const form = document.getElementById('authModalForm');
+  const sent = document.getElementById('authModalSent');
+  const input = document.getElementById('authEmailInput');
+
+  if (reason === 'unlock') {
+    title.textContent = 'Sign in to Unlock Blacksite';
+    sub.textContent = 'Create a free account to purchase and permanently save your Blacksite access across any device.';
+  } else {
+    title.textContent = 'Sign in to HackLab';
+    sub.textContent = 'Progress is saved to your account and works across devices and server restarts.';
+  }
+
+  form.style.display = '';
+  sent.style.display = 'none';
+  if (input) { input.value = ''; }
+  overlay.dataset.redirectTo = redirectTo || '/play';
+  overlay.classList.add('visible');
+  setTimeout(() => { if (input) input.focus(); }, 100);
+}
+
+function dismissAuthModal() {
+  document.getElementById('authOverlay').classList.remove('visible');
+}
+
+async function sendMagicLink() {
+  const input = document.getElementById('authEmailInput');
+  const btn = document.getElementById('authSubmitBtn');
+  const overlay = document.getElementById('authOverlay');
+  const email = input ? input.value.trim() : '';
+  if (!email || !email.includes('@')) {
+    if (input) input.focus();
+    return;
+  }
+
+  const redirectTo = overlay.dataset.redirectTo || '/play';
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+
+  try {
+    const r = await fetch('/api/auth/send-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, next: redirectTo }),
+    });
+    const d = await r.json();
+    if (d.sent) {
+      document.getElementById('authModalForm').style.display = 'none';
+      document.getElementById('authModalSent').style.display = '';
+    } else {
+      btn.textContent = 'Send sign-in link';
+      btn.disabled = false;
+      alert(d.error || 'Failed to send link. Please try again.');
+    }
+  } catch {
+    btn.textContent = 'Send sign-in link';
+    btn.disabled = false;
+    alert('Email service unavailable. Please try again.');
+  }
+}
+
+async function signOut() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  currentUser = null;
+  renderAuthState();
+}
+
+async function saveProgressToServer() {
+  if (!currentUser) return;
+  try {
+    const existing = loadSavedProgress();
+    await fetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        completedStages: [...completedStages],
+        currentStage,
+        advancedUnlocked,
+        stripeSessionId: existing.stripeSessionId || null,
+      }),
+    });
+  } catch {}
+}
+
+initAuth();
 
 // ========== RESIZE HANDLES ==========
 (function setupResize() {

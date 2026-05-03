@@ -5,6 +5,7 @@ const ShellSession = require('../shell/shell');
 const RealShellSession = require('../sandbox/real-shell-session');
 const { escapeHtml } = require('../utils');
 const { handleRequest: handleVirtualWebappRequest } = require('../webapp/vulnerable-app');
+const { getTursoClient } = require('../db/turso');
 
 // Feature flag: extra levels (6-10) and Request Builder only enabled in dev
 const EXTRA_LEVELS = process.env.EXTRA_LEVELS === '1';
@@ -110,6 +111,41 @@ function stageCountFor(state) {
   return state.advancedUnlocked ? getStageCount() : PUBLIC_STAGE_COUNT;
 }
 
+async function loadUserProgress(userId) {
+  const db = getTursoClient();
+  if (!db || !userId) return null;
+  try {
+    const r = await db.execute({ sql: 'SELECT completed_stages, current_stage, advanced_unlocked, stripe_session_id FROM user_progress WHERE user_id = ?', args: [userId] });
+    if (!r.rows.length) return null;
+    const row = r.rows[0];
+    return {
+      completedStages: JSON.parse(row.completed_stages || '[]'),
+      currentStage: row.current_stage,
+      advancedUnlocked: !!row.advanced_unlocked,
+      stripeSessionId: row.stripe_session_id || null,
+    };
+  } catch { return null; }
+}
+
+async function saveUserProgress(userId, state, stripeSessionId = null) {
+  const db = getTursoClient();
+  if (!db || !userId) return;
+  try {
+    const stages = JSON.stringify([...state.completedStages]);
+    await db.execute({
+      sql: `INSERT INTO user_progress (user_id, completed_stages, current_stage, advanced_unlocked, stripe_session_id, updated_at)
+            VALUES (?, ?, ?, ?, ?, unixepoch())
+            ON CONFLICT(user_id) DO UPDATE SET
+              completed_stages = excluded.completed_stages,
+              current_stage = excluded.current_stage,
+              advanced_unlocked = MAX(advanced_unlocked, excluded.advanced_unlocked),
+              stripe_session_id = CASE WHEN stripe_session_id IS NOT NULL THEN stripe_session_id ELSE excluded.stripe_session_id END,
+              updated_at = unixepoch()`,
+      args: [userId, stages, state.currentStage, state.advancedUnlocked ? 1 : 0, stripeSessionId],
+    });
+  } catch { /* fail silently */ }
+}
+
 function applyProgressFromClient(state, savedProgress) {
   const maxStage = stageCountFor(state);
   if (Array.isArray(savedProgress.completedStages)) {
@@ -131,7 +167,7 @@ async function restoreStripeUnlock(stripeSessionId, state) {
   } catch { /* Stripe unavailable — don't unlock */ }
 }
 
-function handleWebSocket(ws) {
+function handleWebSocket(ws, userId = null) {
   let sessionId = null;
   let shell = null;
   const useRealShell = process.env.ENABLE_REAL_SHELL === '1';
@@ -185,14 +221,40 @@ function handleWebSocket(ws) {
         sessionId = msg.sessionId;
         const state = getGameState(sessionId);
         if (devUnlock) state.advancedUnlocked = true;
-        if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
-          await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+
+        // Try loading from Turso first if user is authenticated
+        if (userId) {
+          const dbProgress = await loadUserProgress(userId);
+          if (dbProgress) {
+            // User has stored progress — authoritative source, skip localStorage
+            if (dbProgress.advancedUnlocked) state.advancedUnlocked = true;
+            if (!state.advancedUnlocked && dbProgress.stripeSessionId) {
+              await restoreStripeUnlock(dbProgress.stripeSessionId, state);
+            }
+            if (state.completedStages.size === 0) {
+              applyProgressFromClient(state, dbProgress);
+            }
+          } else {
+            // First time authenticated user connects — merge localStorage into Turso
+            if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
+              await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+            }
+            if (state.completedStages.size === 0) {
+              applyProgressFromClient(state, savedProgress);
+            }
+            // Always persist stripeSessionId even if Stripe is down, so unlock survives
+            await saveUserProgress(userId, state, savedProgress.stripeSessionId || null);
+          }
+        } else {
+          // No auth — fall back to localStorage-only flow
+          if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
+            await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+          }
+          if (state.completedStages.size === 0) {
+            applyProgressFromClient(state, savedProgress);
+          }
         }
-        // In-memory state is empty after a server restart even if the DB file
-        // still exists — restore from client savedProgress in that case.
-        if (state.completedStages.size === 0) {
-          applyProgressFromClient(state, savedProgress);
-        }
+
         const count = stageCountFor(state);
         if (state.currentStage >= count) state.currentStage = count - 1;
         const stage = getStage(state.currentStage);
@@ -216,17 +278,36 @@ function handleWebSocket(ws) {
       }
     }
 
-    // Create new session — restore progress from client savedProgress
+    // Create new session — restore progress from Turso or client savedProgress
     sessionId = sessionManager.createSession();
     const state = getGameState(sessionId);
     if (devUnlock) state.advancedUnlocked = true;
 
-    // Restore purchase first so stageCountFor is accurate
-    if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
-      await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+    if (userId) {
+      const dbProgress = await loadUserProgress(userId);
+      if (dbProgress) {
+        // User has stored progress — authoritative source
+        if (dbProgress.advancedUnlocked) state.advancedUnlocked = true;
+        if (!state.advancedUnlocked && dbProgress.stripeSessionId) {
+          await restoreStripeUnlock(dbProgress.stripeSessionId, state);
+        }
+        applyProgressFromClient(state, dbProgress);
+      } else {
+        // First connect — merge localStorage into Turso
+        if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
+          await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+        }
+        applyProgressFromClient(state, savedProgress);
+        // Always persist stripeSessionId even if Stripe is down, so unlock survives
+        await saveUserProgress(userId, state, savedProgress.stripeSessionId || null);
+      }
+    } else {
+      // No auth — localStorage only
+      if (!state.advancedUnlocked && savedProgress.stripeSessionId) {
+        await restoreStripeUnlock(savedProgress.stripeSessionId, state);
+      }
+      applyProgressFromClient(state, savedProgress);
     }
-
-    applyProgressFromClient(state, savedProgress);
 
     const stage = getStage(state.currentStage);
     shell = useRealShell
@@ -286,6 +367,7 @@ function handleWebSocket(ws) {
         }
         state.currentStage = nextStageIndex;
         shell.setStage(state.currentStage);
+        saveUserProgress(userId, state);
         const newStage = getStage(state.currentStage);
         send({
           stageChange: {
@@ -360,6 +442,7 @@ function handleWebSocket(ws) {
       }
       if (submitted === expected) {
         state.completedStages.add(stageIndex);
+        saveUserProgress(userId, state);
         send({
           flagResult: 'correct',
           prompt: shell.getPrompt(),

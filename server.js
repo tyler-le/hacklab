@@ -8,6 +8,10 @@ const { handleWebSocket } = require('./src/terminal/ws-handler');
 const gameRoutes = require('./src/routes/game');
 const { getGameState } = require('./src/routes/game');
 const { handleRequest: handleWebappRequest, PRODUCT_SVGS } = require('./src/webapp/vulnerable-app');
+const authRoutes = require('./src/routes/auth');
+const { getUserIdFromCookies } = require('./src/routes/auth');
+const progressRoutes = require('./src/routes/progress');
+const { initSchema } = require('./src/db/schema');
 
 const app = express();
 const server = http.createServer(app);
@@ -38,6 +42,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Game API routes (session management, stage switching, hints)
 app.use('/api', gameRoutes);
+// Auth routes (magic link, JWT, me, logout)
+app.use('/api/auth', authRoutes);
+// Progress routes (load/save persistent progress)
+app.use('/api/progress', progressRoutes);
 
 // Webapp routes — serves HTML for the Browser tab iframe.
 // Proxies requests to the vulnerable app so curl and the iframe see the same responses.
@@ -66,8 +74,8 @@ app.all('/webapp/*', (req, res) => {
 });
 
 // WebSocket connections (terminal interaction)
-wss.on('connection', (ws) => {
-  handleWebSocket(ws);
+wss.on('connection', (ws, req) => {
+  handleWebSocket(ws, getUserIdFromCookies(req.headers.cookie));
 });
 
 server.listen(PORT, () => {
@@ -75,6 +83,7 @@ server.listen(PORT, () => {
   if (process.env.ENABLE_REAL_SHELL === '1') {
     console.log('[server] Real shell scaffold enabled (development-only mode)');
   }
+  initSchema().catch(console.error);
 });
 
 // Graceful shutdown

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const sessionManager = require('../db/session-manager');
 const { getStage, getStageCount } = require('../stages/stage-checker');
+const { getUserIdFromCookies } = require('./auth');
+const { getTursoClient } = require('../db/turso');
 
 // In-memory game state per session
 const gameState = new Map();
@@ -161,6 +163,10 @@ router.post('/reset', (req, res) => {
 
 // POST /api/checkout — create a Stripe Checkout session
 router.post('/checkout', async (req, res) => {
+  const userId = getUserIdFromCookies(req.headers.cookie);
+  if (!userId) {
+    return res.status(401).json({ error: 'Sign in required to unlock Blacksite', requiresAuth: true });
+  }
   if (!process.env.STRIPE_SECRET_KEY) {
     return res.status(503).json({ error: 'Payment not configured' });
   }
@@ -203,6 +209,26 @@ router.post('/verify-payment', async (req, res) => {
       if (gameSessionId) {
         const state = getGameState(gameSessionId);
         state.advancedUnlocked = true;
+      }
+      // Persist unlock to Turso if user is authenticated
+      const userId = getUserIdFromCookies(req.headers.cookie);
+      if (userId) {
+        try {
+          const db = getTursoClient();
+          if (db) {
+            await db.execute({
+              sql: `INSERT INTO user_progress (user_id, completed_stages, current_stage, advanced_unlocked, stripe_session_id, updated_at)
+                    VALUES (?, '[]', 0, 1, ?, unixepoch())
+                    ON CONFLICT(user_id) DO UPDATE SET
+                      advanced_unlocked = 1,
+                      stripe_session_id = CASE WHEN stripe_session_id IS NOT NULL THEN stripe_session_id ELSE excluded.stripe_session_id END,
+                      updated_at = unixepoch()`,
+              args: [userId, session_id],
+            });
+          }
+        } catch (e) {
+          console.error('[game] verify-payment Turso error:', e.message);
+        }
       }
       res.json({ unlocked: true, stageCount: getStageCount() });
     } else {
