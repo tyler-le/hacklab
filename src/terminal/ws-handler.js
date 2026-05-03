@@ -184,6 +184,9 @@ function handleWebSocket(ws, userId = null) {
       case 'init':
         handleInit(msg);
         break;
+      case 'reset':
+        handleReset();
+        break;
       case 'command':
         handleCommand(msg);
         break;
@@ -325,6 +328,28 @@ function handleWebSocket(ws, userId = null) {
       stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
       prompt: shell.getPrompt(),
       devUnlock,
+    }));
+  }
+
+  function handleReset() {
+    if (!sessionId) return;
+    const state = getGameState(sessionId);
+    state.currentStage = 0;
+    state.completedStages = new Set();
+    state.advancedUnlocked = false;
+    state.hintIndex = {};
+    shell = useRealShell
+      ? new RealShellSession(sessionId, 0)
+      : new ShellSession(sessionId, 0);
+    const stage = getStage(0);
+    ws.send(JSON.stringify({
+      type: 'reset',
+      currentStage: 0,
+      completedStages: [],
+      stageCount: PUBLIC_STAGE_COUNT,
+      advancedUnlocked: false,
+      stage: { id: stage.id, title: stage.title, mission: stage.mission, flagPrompt: stage.flagPrompt },
+      prompt: shell.getPrompt(),
     }));
   }
 

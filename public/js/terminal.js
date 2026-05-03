@@ -35,6 +35,10 @@ function connectWebSocket() {
         onGameInit(msg);
         break;
 
+      case 'reset':
+        onGameReset(msg);
+        break;
+
       case 'result':
         onCommandResult(msg);
         break;
@@ -70,6 +74,16 @@ function setConnectionStatus(state) {
 function sendCommand(command) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'command', command }));
+  }
+}
+
+function sendReset() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'reset' }));
+  } else {
+    // WS not open — force a fresh session on next reconnect so the server
+    // doesn't replay old completedStages from its in-memory gameState.
+    localStorage.removeItem('hacklab-session');
   }
 }
 
@@ -121,6 +135,38 @@ function onGameInit(msg) {
     }
     printTerminal('');
   }
+
+function onGameReset(msg) {
+  currentStage = msg.currentStage;
+  completedStages = new Set(msg.completedStages);
+  stageCount = msg.stageCount;
+  advancedUnlocked = msg.advancedUnlocked || false;
+
+  if (msg.prompt) {
+    currentPrompt = msg.prompt;
+    updatePromptDisplay();
+  }
+
+  // Clear terminal and all saved stage history
+  document.getElementById('terminalOutput').innerHTML = '';
+  Object.keys(stageTerminalHistory).forEach(k => delete stageTerminalHistory[k]);
+  Object.keys(stageQueryHistory).forEach(k => delete stageQueryHistory[k]);
+  Object.keys(stageBrowserHistory).forEach(k => delete stageBrowserHistory[k]);
+  Object.keys(stageActiveTab).forEach(k => delete stageActiveTab[k]);
+  resetBrowser();
+  sqliteMode = false;
+
+  renderStageDots();
+  updateMonitorTitle(0);
+  document.getElementById('missionText').innerHTML = msg.stage.mission;
+  const fi = document.getElementById('flagInput');
+  if (fi) { fi.placeholder = msg.stage.flagPrompt || ''; fi.value = ''; }
+  const fr = document.getElementById('flagRow');
+  if (fr) fr.classList.remove('correct', 'incorrect');
+
+  printTerminal('<span class="sys">Signed out. Progress reset.</span>');
+  printTerminal('');
+}
 
   // Show paywall when landing page "Unlock" button sends user here
   if (new URLSearchParams(location.search).get('unlock') === '1') {

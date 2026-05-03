@@ -600,6 +600,39 @@ function restartFromCompletion() {
 }
 
 // ========== AUTH ==========
+
+// Cross-tab auth: when the magic-link tab writes this key, the original tab
+// sees the storage event and updates its auth state without a page reload.
+let _crossTabAuthCleanup = null;
+
+function startCrossTabAuthWatch() {
+  stopCrossTabAuthWatch();
+  function onStorage(e) {
+    if (e.key !== 'hacklab-auth-event') return;
+    stopCrossTabAuthWatch();
+    dismissAuthModal();
+    initAuth();
+  }
+  window.addEventListener('storage', onStorage);
+  _crossTabAuthCleanup = () => window.removeEventListener('storage', onStorage);
+}
+
+function stopCrossTabAuthWatch() {
+  if (_crossTabAuthCleanup) { _crossTabAuthCleanup(); _crossTabAuthCleanup = null; }
+}
+
+// Detect magic-link return: this tab was opened by the email client after the
+// user clicked the link. Signal the original game tab, then try to close.
+(function handleAuthReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('auth') !== 'success') return;
+  window.history.replaceState({}, '', window.location.pathname + (params.get('unlock') === '1' ? '?unlock=1' : ''));
+  localStorage.setItem('hacklab-auth-event', Date.now().toString());
+  window.close();
+  // window.close() is silently ignored for tabs not opened via window.open().
+  // The tab stays open; initAuth() below will still sign the user in here.
+})();
+
 async function initAuth() {
   try {
     const r = await fetch('/api/auth/me');
@@ -649,6 +682,7 @@ function showAuthModal(reason, redirectTo) {
 }
 
 function dismissAuthModal() {
+  stopCrossTabAuthWatch();
   document.getElementById('authOverlay').classList.remove('visible');
 }
 
@@ -662,7 +696,9 @@ async function sendMagicLink() {
     return;
   }
 
-  const redirectTo = overlay.dataset.redirectTo || '/play';
+  const baseRedirect = overlay.dataset.redirectTo || '/play';
+  const sep = baseRedirect.includes('?') ? '&' : '?';
+  const redirectTo = `${baseRedirect}${sep}auth=success`;
   btn.textContent = 'Sending...';
   btn.disabled = true;
 
@@ -676,6 +712,7 @@ async function sendMagicLink() {
     if (d.sent) {
       document.getElementById('authModalForm').style.display = 'none';
       document.getElementById('authModalSent').style.display = '';
+      startCrossTabAuthWatch(); // update this tab when the email link is clicked
     } else {
       btn.textContent = 'Send sign-in link';
       btn.disabled = false;
@@ -693,8 +730,14 @@ async function signOut() {
   currentUser = null;
   advancedUnlocked = false;
   stageCount = FREE_STAGE_COUNT;
+  completedStages = new Set();
+  currentStage = 0;
+  paywallTargetStage = null;
+  localStorage.removeItem('hacklab-progress');
+  saveProgress(); // persist the blank state so reconnect sees empty savedProgress
   renderAuthState();
   renderStageDots();
+  sendReset(); // reset server-side session state; also clears sessionId if WS is down
 }
 
 async function saveProgressToServer() {

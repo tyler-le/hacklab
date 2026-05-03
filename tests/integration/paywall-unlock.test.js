@@ -242,3 +242,79 @@ describe('sign-out revokes authenticated state', () => {
     expect(res.body.requiresAuth).toBe(true);
   });
 });
+
+// ─── Progress does not transfer after sign-out ────────────────────────────────
+// signOut() resets client state and sends a WS { type: 'reset' } message that
+// clears server-side completedStages and advancedUnlocked. These HTTP-level
+// tests verify the server invariants that protect against progress leakage.
+describe('progress reset after sign-out', () => {
+  it('advanced stage switch is blocked for a fresh anonymous session', async () => {
+    const res = await request(app)
+      .post('/api/stage/switch')
+      .send({ sessionId, stageIndex: 5 });
+    expect(res.status).toBe(403);
+    expect(res.body.paymentRequired).toBe(true);
+  });
+
+  it('after payment, advanced stage switch is allowed on the same session', async () => {
+    await request(app).post('/api/verify-payment').send({ session_id: 'cs_paid', sessionId });
+    const res = await request(app)
+      .post('/api/stage/switch')
+      .send({ sessionId, stageIndex: 5 });
+    expect(res.status).toBe(200);
+  });
+
+  it('a new session created after sign-out starts with advancedUnlocked=false', async () => {
+    // Unlock the old session
+    await request(app).post('/api/verify-payment').send({ session_id: 'cs_paid', sessionId });
+
+    // Create a new session (simulates client calling POST /api/session after reset)
+    const newRes = await request(app).post('/api/session');
+    const newSessionId = newRes.body.sessionId;
+
+    // Advanced stage should be blocked on the fresh session
+    const switchRes = await request(app)
+      .post('/api/stage/switch')
+      .send({ sessionId: newSessionId, stageIndex: 5 });
+    expect(switchRes.status).toBe(403);
+    expect(switchRes.body.paymentRequired).toBe(true);
+
+    sessionManager.destroySession(newSessionId);
+  });
+
+  it('a new session has no completedStages', async () => {
+    // Advance progress on old session
+    await request(app).post('/api/stage/switch').send({ sessionId, stageIndex: 2 });
+    await request(app).post('/api/stage/complete').send({ sessionId });
+
+    // New session starts clean
+    const newRes = await request(app).post('/api/session');
+    const newSessionId = newRes.body.sessionId;
+    const stateRes = await request(app).get(`/api/session/${newSessionId}`);
+    expect(stateRes.body.completedStages).toEqual([]);
+    expect(stateRes.body.currentStage).toBe(0);
+
+    sessionManager.destroySession(newSessionId);
+  });
+
+  it('stage/switch after sign-out is blocked even if old session had advanced access', async () => {
+    // Pay on the old session
+    await request(app)
+      .post('/api/verify-payment')
+      .set('Cookie', makeAuthCookie())
+      .send({ session_id: 'cs_paid', sessionId });
+
+    // New session (anonymous, after sign-out) — must NOT inherit advanced access
+    const newRes = await request(app).post('/api/session');
+    const newSessionId = newRes.body.sessionId;
+
+    for (const idx of [5, 6, 9]) {
+      const res = await request(app)
+        .post('/api/stage/switch')
+        .send({ sessionId: newSessionId, stageIndex: idx });
+      expect(res.status).toBe(403);
+    }
+
+    sessionManager.destroySession(newSessionId);
+  });
+});

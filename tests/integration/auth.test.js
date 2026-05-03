@@ -189,4 +189,72 @@ describe('GET /api/auth/verify', () => {
     const res = await request(app).get('/api/auth/verify?token=tok');
     expect(res.status).toBe(400);
   });
+
+  // ─── Happy path + auth=success cross-tab redirect ──────────────────────────
+  function mockVerifySuccess(now) {
+    mockDb.execute
+      .mockResolvedValueOnce({ rows: [{ token: 'tok', user_id: 'u1', expires_at: now + 900, used: 0 }] }) // SELECT token
+      .mockResolvedValueOnce({ rows: [] })                                                                 // UPDATE set used
+      .mockResolvedValueOnce({ rows: [{ id: 'u1', email: 'test@example.com' }] });                        // SELECT user
+  }
+
+  it('sets JWT cookie and redirects to /play on valid token', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    mockVerifySuccess(now);
+
+    const app = buildApp();
+    const res = await request(app).get('/api/auth/verify?token=tok');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/play');
+    const setCookie = res.headers['set-cookie'];
+    expect(setCookie).toBeTruthy();
+    expect(setCookie.some(c => c.startsWith('hacklab_token='))).toBe(true);
+  });
+
+  it('redirects to the next param when provided', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    mockVerifySuccess(now);
+
+    const app = buildApp();
+    const res = await request(app).get('/api/auth/verify?token=tok&next=%2Fplay%3Funlock%3D1');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/play?unlock=1');
+  });
+
+  it('preserves ?auth=success in the redirect URL (cross-tab signal)', async () => {
+    // sendMagicLink() appends ?auth=success to the next URL so the landing tab
+    // can write a localStorage event that the original game tab picks up.
+    const now = Math.floor(Date.now() / 1000);
+    mockVerifySuccess(now);
+
+    const app = buildApp();
+    const res = await request(app)
+      .get('/api/auth/verify?token=tok&next=%2Fplay%3Fauth%3Dsuccess');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/play?auth=success');
+  });
+
+  it('preserves both unlock and auth=success params in the redirect', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    mockVerifySuccess(now);
+
+    const app = buildApp();
+    const res = await request(app)
+      .get('/api/auth/verify?token=tok&next=%2Fplay%3Funlock%3D1%26auth%3Dsuccess');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/play?unlock=1&auth=success');
+  });
+
+  it('JWT in the cookie is valid and contains the user id and email', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    mockVerifySuccess(now);
+
+    const app = buildApp();
+    const res = await request(app).get('/api/auth/verify?token=tok');
+    const cookieHeader = res.headers['set-cookie'][0];
+    const token = cookieHeader.split(';')[0].replace('hacklab_token=', '');
+    const payload = jwt.verify(token, SECRET);
+    expect(payload.userId).toBe('u1');
+    expect(payload.email).toBe('test@example.com');
+  });
 });
