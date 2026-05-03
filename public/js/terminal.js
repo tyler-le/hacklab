@@ -9,6 +9,7 @@ let sqliteMode = false;
 let lastBrowserHtml = '';
 let isReconnecting = false;
 let reconnectAttempts = 0;
+let _intentionalReconnect = false;
 
 function loadSavedProgress() {
   try {
@@ -54,7 +55,8 @@ function connectWebSocket() {
       isReconnecting = true;
       setConnectionStatus('reconnecting');
     }
-    const delay = Math.min(1000 * 2 ** reconnectAttempts, 10000);
+    const delay = _intentionalReconnect ? 0 : Math.min(1000 * 2 ** reconnectAttempts, 10000);
+    _intentionalReconnect = false;
     reconnectAttempts++;
     setTimeout(connectWebSocket, delay);
   };
@@ -91,7 +93,7 @@ function sendReset() {
 // picks up the correct userId. Bypasses the exponential backoff delay so the
 // UI updates as soon as the new connection is established.
 function reconnectWebSocket() {
-  reconnectAttempts = 0; // reset backoff so reconnect is immediate
+  _intentionalReconnect = true;
   if (ws) ws.close();
 }
 
