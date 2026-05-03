@@ -622,6 +622,8 @@ function stopCrossTabAuthWatch() {
 }
 
 
+let _authInitialized = false;
+
 async function initAuth() {
   const prevUser = currentUser;
   try {
@@ -630,16 +632,17 @@ async function initAuth() {
     currentUser = d.user;
   } catch { currentUser = null; }
 
-  // When the user signs in while the WS is already open, the server's WS
-  // handler still has userId=null from when the connection was established.
-  // That means saveUserProgress() is never called and loadUserProgress() is
-  // never used. Reconnecting forces the server to re-read the JWT cookie so
-  // the correct userId is captured for all subsequent Turso reads/writes.
   const prevId = prevUser ? prevUser.id : null;
   const newId = currentUser ? currentUser.id : null;
-  if (prevId !== newId && newId !== null) {
+
+  // Reconnect the WS when the user signs IN during an active session so the
+  // server re-reads the JWT cookie and loads Turso progress with the correct
+  // userId. Skip on the initial page-load call — the WS init already reads
+  // the cookie on connect, so no reconnect is needed.
+  if (_authInitialized && prevId !== newId && newId !== null) {
     reconnectWebSocket();
   }
+  _authInitialized = true;
 
   renderAuthState();
 }

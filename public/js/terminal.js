@@ -87,9 +87,11 @@ function sendReset() {
   }
 }
 
-// Force the WS to reconnect so the server re-reads the JWT cookie and picks
-// up the correct userId. Call this after sign-in so Turso progress loads.
+// Force an immediate WS reconnect so the server re-reads the JWT cookie and
+// picks up the correct userId. Bypasses the exponential backoff delay so the
+// UI updates as soon as the new connection is established.
 function reconnectWebSocket() {
+  reconnectAttempts = 0; // reset backoff so reconnect is immediate
   if (ws) ws.close();
 }
 
