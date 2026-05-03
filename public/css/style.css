@@ -238,6 +238,8 @@ body::after {
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 2px;
+  text-decoration: none;
+  color: inherit;
 }
 
 .logo span { color: var(--red); }

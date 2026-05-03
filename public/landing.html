@@ -7,20 +7,20 @@
 <title>HackLab — Learn Web Hacking by Doing It | Free Browser Security Game</title>
 <meta name="description" content="HackLab is a free browser game where you learn real web security vulnerabilities by exploiting them. Practice SQL injection, XSS, command injection, IDOR, and more — no setup, no downloads.">
 <meta name="keywords" content="web security game, SQL injection tutorial, XSS tutorial, learn hacking, cybersecurity training, ethical hacking practice, OWASP vulnerabilities, web hacking game, penetration testing learning, free security course">
-<link rel="canonical" href="https://hacklab.up.railway.app/">
+<link rel="canonical" href="https://playhacklab.com/">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://hacklab.up.railway.app/">
+<meta property="og:url" content="https://playhacklab.com/">
 <meta property="og:title" content="HackLab — Learn Web Hacking by Doing It">
 <meta property="og:description" content="A free browser game where you exploit real web vulnerabilities — SQL injection, XSS, command injection and more. No setup required.">
-<meta property="og:image" content="https://hacklab.up.railway.app/og-image.png">
+<meta property="og:image" content="https://playhacklab.com/og-image.png">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="HackLab — Learn Web Hacking by Doing It">
 <meta name="twitter:description" content="A free browser game where you exploit real web vulnerabilities — SQL injection, XSS, command injection and more. No setup required.">
-<meta name="twitter:image" content="https://hacklab.up.railway.app/og-image.png">
+<meta name="twitter:image" content="https://playhacklab.com/og-image.png">
 
 <!-- Structured data -->
 <script type="application/ld+json">
@@ -28,28 +28,15 @@
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "HackLab",
-  "url": "https://hacklab.up.railway.app/play",
+  "url": "https://playhacklab.com/play",
   "description": "An interactive browser game that teaches web security vulnerabilities through hands-on exploitation. Players practice SQL injection, XSS, command injection, IDOR, SSRF, and more in a safe simulated environment.",
   "applicationCategory": "EducationalApplication",
   "operatingSystem": "Any",
   "offers": [
-    {
-      "@type": "Offer",
-      "name": "Free Pack — 5 Levels",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    {
-      "@type": "Offer",
-      "name": "Operation Blacksite — 5 Advanced Levels",
-      "price": "0.99",
-      "priceCurrency": "USD"
-    }
+    { "@type": "Offer", "name": "Free Pack — 5 Levels", "price": "0", "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Operation Blacksite — 5 Advanced Levels", "price": "0.99", "priceCurrency": "USD" }
   ],
-  "audience": {
-    "@type": "Audience",
-    "audienceType": "Developers, security engineers, students learning cybersecurity"
-  }
+  "audience": { "@type": "Audience", "audienceType": "Developers, security engineers, students learning cybersecurity" }
 }
 </script>
 
@@ -67,10 +54,12 @@
   --bg2: #0f120f;
   --bg3: #141814;
   --border: #1a2a1a;
+  --border-mid: #2a3a2a;
   --text: #c8d8c8;
   --text-dim: #8fb08f;
   --red: #ff4444;
   --blue: #44aaff;
+  --mono: 'Courier New', Courier, monospace;
 }
 
 html { scroll-behavior: smooth; }
@@ -88,29 +77,30 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(10,12,10,0.92);
+  background: rgba(10,12,10,0.95);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
-  padding: 0 24px;
+  padding: 0 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
+  height: 52px;
 }
 .nav-logo {
-  font-family: 'Courier New', monospace;
-  font-size: 18px;
+  font-family: var(--mono);
+  font-size: 17px;
   font-weight: 800;
   color: var(--green);
   letter-spacing: 0.05em;
   text-decoration: none;
 }
 .nav-logo span { color: #fff; }
-.nav-links { display: flex; gap: 24px; align-items: center; }
+.nav-links { display: flex; gap: 28px; align-items: center; }
 .nav-links a {
   color: var(--text-dim);
   text-decoration: none;
-  font-size: 15px;
+  font-size: 14px;
+  font-family: var(--mono);
   transition: color 0.15s;
 }
 .nav-links a:hover { color: var(--green); }
@@ -118,38 +108,53 @@ body {
   background: var(--green);
   color: #000 !important;
   font-weight: 700;
-  padding: 8px 20px;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 7px 18px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: var(--mono);
   transition: background 0.15s !important;
 }
 .nav-cta:hover { background: var(--green-dim) !important; color: #000 !important; }
 
+/* ── System status bar ── */
+.sys-bar {
+  background: var(--green-dark);
+  border-bottom: 1px solid #005533;
+  padding: 8px 32px;
+  display: flex;
+  gap: 32px;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-x: auto;
+}
+.sys-bar-item { display: flex; gap: 8px; white-space: nowrap; }
+.sys-bar-item .label { color: #7abf9a; }
+.sys-bar-item .value { color: var(--green); }
+.sys-bar-item .value.warn { color: var(--amber); }
+.sys-bar-item .value.danger { color: var(--red); }
+
 /* ── Hero ── */
 .hero {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 80px 24px 64px;
-  text-align: center;
-}
-.hero-badge {
-  display: inline-flex;
+  padding: 72px 32px 64px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
   align-items: center;
-  gap: 8px;
-  background: var(--green-dark);
-  border: 1px solid var(--green-dim);
-  color: var(--green);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 999px;
-  margin-bottom: 28px;
 }
-.hero-badge::before { content: '▶'; font-size: 11px; }
+.hero-left {}
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.hero-eyebrow::before { content: '// '; color: #7aaa8a; }
 .hero h1 {
-  font-size: clamp(32px, 6vw, 56px);
+  font-size: clamp(28px, 4vw, 46px);
   font-weight: 800;
   color: #fff;
   line-height: 1.15;
@@ -161,82 +166,66 @@ body {
   color: var(--green);
 }
 .hero-sub {
-  font-size: clamp(16px, 2vw, 20px);
+  font-size: 16px;
   color: var(--text-dim);
-  max-width: 580px;
-  margin: 0 auto 40px;
-}
-.hero-cta-row {
-  display: flex;
-  gap: 14px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: 56px;
+  line-height: 1.7;
+  margin-bottom: 36px;
+  max-width: 420px;
 }
 .btn-primary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: var(--green);
   color: #000;
   font-weight: 800;
-  font-size: 16px;
-  padding: 14px 32px;
-  border-radius: 8px;
+  font-size: 15px;
+  font-family: var(--mono);
+  padding: 13px 28px;
+  border-radius: 3px;
   text-decoration: none;
   transition: background 0.15s, transform 0.1s;
 }
 .btn-primary:hover { background: var(--green-dim); transform: translateY(-1px); }
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  color: var(--text);
-  font-weight: 600;
-  font-size: 16px;
-  padding: 14px 32px;
-  border-radius: 8px;
-  border: 1px solid #2d4a2d;
-  text-decoration: none;
-  transition: border-color 0.15s, color 0.15s;
+.hero-note {
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: #6a8a6a;
 }
-.btn-secondary:hover { border-color: var(--green-dim); color: var(--green); }
 
 /* ── Terminal preview ── */
 .terminal-preview {
   background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 1px solid var(--border-mid);
+  border-radius: 6px;
   overflow: hidden;
   text-align: left;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,255,136,0.05);
-  max-width: 720px;
-  margin: 0 auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,136,0.04);
 }
 .terminal-titlebar {
   background: var(--bg3);
-  padding: 12px 16px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   border-bottom: 1px solid var(--border);
 }
-.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot { width: 11px; height: 11px; border-radius: 50%; }
 .dot.red { background: #ff5f57; }
 .dot.yellow { background: #febc2e; }
 .dot.green { background: #28c840; }
 .terminal-titlebar span {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
-  font-family: monospace;
+  font-family: var(--mono);
 }
 .terminal-body {
-  padding: 20px 24px 24px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
-  line-height: 1.7;
+  padding: 18px 20px 22px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.75;
 }
 .t-prompt { color: var(--green); }
 .t-cmd { color: #fff; }
@@ -244,215 +233,286 @@ body {
 .t-flag { color: var(--green); font-weight: 700; }
 .t-err { color: var(--red); }
 .t-info { color: var(--blue); }
-.t-comment { color: #5a8a5a; }
+.t-comment { color: #7aaa8a; }
 .cursor {
   display: inline-block;
-  width: 8px;
-  height: 14px;
+  width: 7px;
+  height: 13px;
   background: var(--green);
   vertical-align: middle;
   animation: blink 1.1s step-end infinite;
 }
 @keyframes blink { 50% { opacity: 0; } }
 
-/* ── How it works ── */
+/* ── Section base ── */
 .section {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 80px 24px;
+  padding: 72px 32px;
 }
-.section-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--green-dim);
-  margin-bottom: 12px;
-}
-.section h2 {
-  font-size: clamp(24px, 4vw, 36px);
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 16px;
-  letter-spacing: -0.02em;
-}
-.section-sub {
-  color: var(--text-dim);
-  font-size: 17px;
-  max-width: 540px;
+.section-header {
   margin-bottom: 48px;
 }
-
-.steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-}
-.step {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 28px;
-  transition: border-color 0.2s;
-}
-.step:hover { border-color: var(--green-dim); }
-.step-num {
-  font-family: monospace;
+.section-tag {
+  font-family: var(--mono);
   font-size: 12px;
-  color: var(--green-dim);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  margin-bottom: 12px;
-}
-.step h3 {
-  font-size: 17px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 8px;
-}
-.step p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
-
-/* ── Levels ── */
-.levels-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
-}
-.level-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  transition: border-color 0.2s, transform 0.15s;
-}
-.level-card:hover { border-color: var(--green-dim); transform: translateY(-2px); }
-.level-card.locked { opacity: 0.65; }
-.level-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  color: #7aaa8a;
   margin-bottom: 10px;
 }
-.level-num {
-  font-family: monospace;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--green-dim);
-  letter-spacing: 0.1em;
+.section-tag::before { content: '// '; }
+.section h2 {
+  font-size: clamp(22px, 3.5vw, 32px);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
-.level-badge {
+.section-sub {
+  margin-top: 10px;
+  color: var(--text-dim);
+  font-size: 15px;
+  max-width: 520px;
+}
+
+.rule {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ── How it works: terminal session ── */
+.ts-block {
+  background: var(--bg2);
+  border: 1px solid var(--border-mid);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ts-titlebar {
+  background: var(--bg3);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--border);
+}
+.ts-titlebar span {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+.ts-body {
+  padding: 20px 24px 24px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 2;
+}
+.ts-line { display: flex; gap: 12px; flex-wrap: wrap; }
+.ts-line + .ts-line { margin-top: 0; }
+.ts-gap { height: 10px; }
+.ts-prompt { color: var(--green); flex-shrink: 0; }
+.ts-cmd { color: #fff; }
+.ts-comment { color: #7aaa8a; }
+.ts-out { color: var(--text-dim); padding-left: 20px; }
+.ts-out.success { color: var(--blue); }
+.ts-out.win { color: var(--green); font-weight: 700; }
+.ts-step-label {
+  display: inline-block;
+  font-family: var(--mono);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 3px 8px;
-  border-radius: 4px;
+  letter-spacing: 0.1em;
+  color: #000;
+  background: var(--green-dim);
+  padding: 2px 8px;
+  border-radius: 2px;
+  margin-top: 18px;
+  margin-bottom: 4px;
 }
-.level-badge.free { background: var(--green-dark); color: var(--green); }
-.level-badge.paid { background: rgba(255,149,0,0.12); color: var(--amber); border: 1px solid rgba(255,149,0,0.3); }
-.level-card h3 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-.level-card p { font-size: 13px; color: var(--text-dim); }
-.level-owasp { font-size: 12px; color: #5a8a5a; margin-top: 8px; font-family: monospace; }
 
-.divider { border: none; border-top: 1px solid var(--border); }
-
-/* ── Pricing ── */
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  max-width: 680px;
-  margin: 0 auto;
-}
-.pricing-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 32px;
-}
-.pricing-card.featured {
-  border-color: var(--amber);
-  box-shadow: 0 0 40px rgba(255,149,0,0.08);
-}
-.pricing-name {
+/* ── Missions table ── */
+.missions-block {
+  font-family: var(--mono);
   font-size: 13px;
+}
+.missions-section-label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: #7aaa8a;
   margin-bottom: 8px;
 }
-.pricing-price {
-  font-size: 40px;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 4px;
+.missions-section-label.blacksite { color: #c08030; }
+.missions-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
-.pricing-price sup { font-size: 20px; vertical-align: super; }
-.pricing-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
-.pricing-features { list-style: none; margin-bottom: 28px; }
-.pricing-features li {
-  font-size: 14px;
-  color: var(--text);
-  padding: 6px 0;
-  display: flex;
+.missions-section-label.blacksite::after { background: #5a3a10; }
+
+.mission-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 160px 80px;
+  gap: 16px;
   align-items: center;
-  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 3px;
+  transition: background 0.12s;
 }
-.pricing-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
-.pricing-btn {
+.mission-row:hover { background: var(--bg2); }
+.mission-row.locked { opacity: 0.75; }
+.mission-id { color: var(--green-dim); font-size: 12px; }
+.mission-row.locked .mission-id { color: #7a8a50; }
+.mission-name { color: #fff; font-size: 13px; }
+.mission-row.locked .mission-name { color: #b0c8b0; }
+.mission-owasp { color: #6a9a7a; font-size: 11px; }
+.mission-access {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+.mission-access.free { color: var(--green); }
+.mission-access.locked-tag { color: var(--amber); }
+
+.blacksite-callout {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: rgba(255,149,0,0.06);
+  border: 1px solid rgba(255,149,0,0.2);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: #d4a870;
+}
+.blacksite-callout strong { color: var(--amber); }
+.blacksite-callout a { color: var(--amber); text-decoration: underline; }
+
+/* ── Access tiers ── */
+.tiers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 680px;
+}
+.tier {
+  background: var(--bg2);
+  border: 1px solid var(--border-mid);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.tier.blacksite { border-color: rgba(255,149,0,0.35); }
+.tier-header {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 16px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tier-header .tier-name { color: var(--text-dim); font-weight: 700; letter-spacing: 0.08em; }
+.tier-header .tier-price { color: var(--green); }
+.tier.blacksite .tier-header { border-bottom-color: rgba(255,149,0,0.15); }
+.tier.blacksite .tier-header .tier-price { color: var(--amber); }
+.tier-body {
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 2;
+}
+.tier-line { display: flex; gap: 10px; }
+.tier-line .key { color: #6a9a7a; flex-shrink: 0; }
+.tier-line .val { color: var(--text); }
+.tier-line .val.green { color: var(--green); }
+.tier-line .val.amber { color: var(--amber); }
+.tier-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.tier.blacksite .tier-footer { border-top-color: rgba(255,149,0,0.15); }
+.tier-btn {
   display: block;
   text-align: center;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 10px;
+  border-radius: 3px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 13px;
+  font-family: var(--mono);
   text-decoration: none;
   transition: background 0.15s;
 }
-.pricing-btn.free-btn {
-  background: var(--green);
-  color: #000;
-}
-.pricing-btn.free-btn:hover { background: var(--green-dim); }
-.pricing-btn.paid-btn {
-  background: var(--amber);
-  color: #000;
-}
-.pricing-btn.paid-btn:hover { background: #e08800; }
+.tier-btn.free-btn { background: var(--green); color: #000; }
+.tier-btn.free-btn:hover { background: var(--green-dim); }
+.tier-btn.paid-btn { background: var(--amber); color: #000; }
+.tier-btn.paid-btn:hover { background: #e08800; }
 
 /* ── FAQ ── */
 .faq { max-width: 640px; }
-.faq-item { border-bottom: 1px solid var(--border); padding: 20px 0; }
+.faq-item { border-bottom: 1px solid var(--border); padding: 18px 0; }
 .faq-item:last-child { border-bottom: none; }
-.faq-q { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.faq-q {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.faq-q::before {
+  content: 'Q: ';
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green-dim);
+  font-weight: 400;
+}
 .faq-a { font-size: 14px; color: var(--text-dim); line-height: 1.65; }
 .faq-a a { color: var(--green-dim); }
+
+/* ── Final CTA ── */
+.final-cta {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 64px 32px 80px;
+  display: flex;
+  align-items: flex-start;
+  gap: 48px;
+}
+.final-cta-text h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 800; color: #fff; margin-bottom: 10px; }
+.final-cta-text p { color: var(--text-dim); font-size: 15px; }
+.final-cta-action { flex-shrink: 0; }
 
 /* ── Footer ── */
 .footer {
   border-top: 1px solid var(--border);
-  padding: 32px 24px;
+  padding: 28px 32px;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
-  text-align: center;
 }
-.footer-logo {
-  font-family: monospace;
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--green);
-}
-.footer-links { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
-.footer-links a { font-size: 14px; color: var(--text-dim); text-decoration: none; }
+.footer-logo { font-family: var(--mono); font-size: 14px; font-weight: 800; color: var(--green); }
+.footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+.footer-links a { font-family: var(--mono); font-size: 13px; color: var(--text-dim); text-decoration: none; }
 .footer-links a:hover { color: var(--green); }
-.footer-copy { font-size: 13px; color: #5a7a5a; }
+.footer-copy { font-family: var(--mono); font-size: 12px; color: #5a7a5a; }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
+  .hero { grid-template-columns: 1fr; gap: 40px; }
+  .tiers { grid-template-columns: 1fr; }
   .nav-links a:not(.nav-cta) { display: none; }
-  .hero { padding: 56px 20px 48px; }
+  .hero { padding: 48px 20px 40px; }
   .section { padding: 56px 20px; }
+  .sys-bar { gap: 20px; padding: 8px 20px; }
+  .footer { flex-direction: column; align-items: flex-start; }
+  .final-cta { flex-direction: column; gap: 24px; }
+  .mission-row { grid-template-columns: 32px 1fr 80px; }
+  .mission-owasp { display: none; }
 }
 </style>
 </head>
@@ -462,28 +522,35 @@ body {
 <nav class="nav" aria-label="Main navigation">
   <a class="nav-logo" href="/">HACK<span>LAB</span></a>
   <div class="nav-links">
-    <a href="#how-it-works">How it works</a>
-    <a href="#levels">Levels</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-    <a class="nav-cta" href="/play">Play Free →</a>
+    <a href="#how-it-works">how-it-works</a>
+    <a href="#missions">missions</a>
+    <a href="#access">access</a>
+    <a href="#faq">faq</a>
+    <a class="nav-cta" href="/play">./play --free</a>
   </div>
 </nav>
 
+<!-- System status bar -->
+<div class="sys-bar" aria-hidden="true">
+  <div class="sys-bar-item"><span class="label">target:</span><span class="value">megacorp-web-01</span></div>
+  <div class="sys-bar-item"><span class="label">vulnerabilities:</span><span class="value danger">10 unpatched</span></div>
+  <div class="sys-bar-item"><span class="label">shell:</span><span class="value">ready</span></div>
+  <div class="sys-bar-item"><span class="label">operator:</span><span class="value warn">unassigned</span></div>
+  <div class="sys-bar-item"><span class="label">clearance:</span><span class="value">open</span></div>
+</div>
+
 <!-- Hero -->
 <header class="hero">
-  <div class="hero-badge">Free Browser Game · No Download Required</div>
-  <h1>Learn Web Hacking<br>by <em>Actually Doing It</em></h1>
-  <p class="hero-sub">
-    HackLab drops you into a live terminal with shell access to a fake company's server.
-    Find real vulnerabilities, exploit them, steal the secrets. No tutorials — just hacking.
-  </p>
-  <div class="hero-cta-row">
-    <a class="btn-primary" href="/play">▶ Play Free — 5 Levels</a>
-    <a class="btn-secondary" href="#levels">See all levels</a>
+  <div class="hero-left">
+    <div class="hero-eyebrow">free browser game · no download required</div>
+    <h1>The web is<br>full of bugs.<br><em>Find them.</em></h1>
+    <p class="hero-sub">
+      A live shell. A fake company's server. Ten real vulnerabilities to find and exploit — SQL injection, XSS, command injection, SSRF, and more. No tutorials until you ask.
+    </p>
+    <a class="btn-primary" href="/play">▶ Enter the Lab</a>
+    <div class="hero-note">// free · 5 levels · no account required</div>
   </div>
 
-  <!-- Terminal preview -->
   <div class="terminal-preview" role="img" aria-label="HackLab terminal showing SQL injection exploit">
     <div class="terminal-titlebar">
       <div class="dot red"></div>
@@ -492,262 +559,267 @@ body {
       <span>hacklab@megacorp:~$</span>
     </div>
     <div class="terminal-body">
-      <div><span class="t-comment"># Stage 4: SQL Injection — bypass the admin login</span></div>
+      <div><span class="t-comment"># stage 4 — bypass the admin login</span></div>
       <div>&nbsp;</div>
-      <div><span class="t-prompt">hacklab@megacorp:/var/www/megacorp$</span> <span class="t-cmd">cat routes.js</span></div>
-      <div><span class="t-out">// VULNERABLE: string concatenation — never do this</span></div>
-      <div><span class="t-out">const sql = `SELECT * FROM users WHERE username='<span class="t-err">${user}</span>' AND password='<span class="t-err">${pass}</span>'`;</span></div>
+      <div><span class="t-prompt">$</span> <span class="t-cmd">cat routes.js</span></div>
+      <div><span class="t-out">const sql = `SELECT * FROM users</span></div>
+      <div><span class="t-out">&nbsp;&nbsp;WHERE user='<span class="t-err">${user}</span>'</span></div>
+      <div><span class="t-out">&nbsp;&nbsp;AND pass='<span class="t-err">${pass}</span>'`;</span></div>
       <div>&nbsp;</div>
-      <div><span class="t-prompt">hacklab@megacorp:/var/www/megacorp$</span> <span class="t-cmd">curl -X POST -d "user=' OR 1=1 --&pass=x" http://portal.megacorp.internal/api/admin/login</span></div>
-      <div><span class="t-info">✓ Exploit successful! Find the secret in the browser and submit it above.</span></div>
+      <div><span class="t-prompt">$</span> <span class="t-cmd">curl -X POST \</span></div>
+      <div><span class="t-cmd">&nbsp;&nbsp;-d "user=' OR 1=1 --&pass=x" \</span></div>
+      <div><span class="t-cmd">&nbsp;&nbsp;/api/admin/login</span></div>
+      <div><span class="t-info">✓ Auth bypassed. Secret: Pr0d_DB_M@st3r</span></div>
       <div>&nbsp;</div>
-      <div><span class="t-prompt">hacklab@megacorp:/var/www/megacorp$</span> <span class="t-cmd">submit Pr0d_DB_M@st3r_Xk9m</span></div>
-      <div><span class="t-flag">✓ Stage 4 complete — Authentication Bypassed!</span></div>
+      <div><span class="t-prompt">$</span> <span class="t-cmd">submit Pr0d_DB_M@st3r</span></div>
+      <div><span class="t-flag">✓ Stage 4 complete.</span></div>
       <div>&nbsp;</div>
-      <div><span class="t-prompt">hacklab@megacorp:/var/www/megacorp$</span> <span class="cursor"></span></div>
+      <div><span class="t-prompt">$</span> <span class="cursor"></span></div>
     </div>
   </div>
 </header>
 
-<hr class="divider">
+<hr class="rule">
 
 <!-- How it works -->
 <section class="section" id="how-it-works" aria-labelledby="how-heading">
-  <div class="section-label">How it works</div>
-  <h2 id="how-heading">Hack first. Learn why it works second.</h2>
-  <p class="section-sub">Each level gives you real tools and a real target. No guided walkthroughs until you ask for a hint.</p>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">01 — READ THE CODE</div>
-      <h3>Explore the server</h3>
-      <p>Use a real terminal to poke around the web server files. Read the source code. Find the bug.</p>
+  <div class="section-header">
+    <div class="section-tag">how-it-works</div>
+    <h2 id="how-heading">Hack first.<br>Understand why second.</h2>
+    <p class="section-sub">No hand-holding. Each level gives you a shell and a target. The rest is up to you.</p>
+  </div>
+
+  <div class="ts-block">
+    <div class="ts-titlebar">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+      <span>hacklab@megacorp — mission walkthrough</span>
     </div>
-    <div class="step">
-      <div class="step-num">02 — CRAFT THE EXPLOIT</div>
-      <h3>Execute the attack</h3>
-      <p>Use curl, the browser, or the request builder to craft your payload. Inject the input. Steal the secrets.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">03 — UNDERSTAND THE FIX</div>
-      <h3>Learn the defense</h3>
-      <p>Every level ends with an explanation of what went wrong and exactly how a real developer would fix it.</p>
+    <div class="ts-body">
+      <div class="ts-step-label">STEP 1 — EXPLORE</div>
+      <div class="ts-gap"></div>
+      <div class="ts-line">
+        <span class="ts-prompt">$</span>
+        <span class="ts-cmd">ls /var/www/megacorp/</span>
+        <span class="ts-comment"># explore the server like a real attacker would</span>
+      </div>
+      <div class="ts-line ts-out">routes.js &nbsp; auth.js &nbsp; db.js &nbsp; config.js &nbsp; .env</div>
+      <div class="ts-line">
+        <span class="ts-prompt">$</span>
+        <span class="ts-cmd">cat auth.js</span>
+        <span class="ts-comment"># read the source code · find the vulnerability</span>
+      </div>
+      <div class="ts-line ts-out">// VULNERABLE: direct string concat — never do this in prod</div>
+
+      <div class="ts-step-label">STEP 2 — EXPLOIT</div>
+      <div class="ts-gap"></div>
+      <div class="ts-line">
+        <span class="ts-prompt">$</span>
+        <span class="ts-cmd">curl -X POST -d "user=' OR 1=1 --&pass=x" /api/admin/login</span>
+      </div>
+      <div class="ts-line ts-out success">✓ 200 OK — {"token":"eyJ...","role":"admin","secret":"Pr0d_DB_M@st3r"}</div>
+
+      <div class="ts-step-label">STEP 3 — LEARN THE FIX</div>
+      <div class="ts-gap"></div>
+      <div class="ts-line">
+        <span class="ts-prompt">$</span>
+        <span class="ts-cmd">submit Pr0d_DB_M@st3r</span>
+      </div>
+      <div class="ts-line ts-out win">✓ Stage complete. DEFENSE: parameterized queries prevent injection entirely.</div>
     </div>
   </div>
 </section>
 
-<hr class="divider">
+<hr class="rule">
 
-<!-- Levels -->
-<section class="section" id="levels" aria-labelledby="levels-heading">
-  <div class="section-label">All 10 levels</div>
-  <h2 id="levels-heading">From beginner to advanced</h2>
-  <p class="section-sub">Five free levels covering the OWASP Top 10 essentials. Five advanced levels for real-world attack chains.</p>
-  <div class="levels-grid">
-
-    <article class="level-card">
-      <div class="level-top">
-        <span class="level-num">LEVEL 01</span>
-        <span class="level-badge free">FREE</span>
-      </div>
-      <h3>Information Leakage</h3>
-      <p>Find credentials hidden in the page source and use them to log in as admin.</p>
-      <div class="level-owasp">OWASP A05 — Security Misconfiguration</div>
-    </article>
-
-    <article class="level-card">
-      <div class="level-top">
-        <span class="level-num">LEVEL 02</span>
-        <span class="level-badge free">FREE</span>
-      </div>
-      <h3>Broken Access Control (IDOR)</h3>
-      <p>Access another user's private profile by changing a single number in the URL.</p>
-      <div class="level-owasp">OWASP A01 — Broken Access Control</div>
-    </article>
-
-    <article class="level-card">
-      <div class="level-top">
-        <span class="level-num">LEVEL 03</span>
-        <span class="level-badge free">FREE</span>
-      </div>
-      <h3>Cross-Site Scripting (XSS)</h3>
-      <p>Inject a script tag into the search page to steal the admin's session cookie.</p>
-      <div class="level-owasp">OWASP A03 — Injection</div>
-    </article>
-
-    <article class="level-card">
-      <div class="level-top">
-        <span class="level-num">LEVEL 04</span>
-        <span class="level-badge free">FREE</span>
-      </div>
-      <h3>SQL Injection</h3>
-      <p>Bypass the admin login without knowing the password using a classic SQL injection payload.</p>
-      <div class="level-owasp">OWASP A03 — Injection</div>
-    </article>
-
-    <article class="level-card">
-      <div class="level-top">
-        <span class="level-num">LEVEL 05</span>
-        <span class="level-badge free">FREE</span>
-      </div>
-      <h3>Command Injection</h3>
-      <p>Chain shell commands through a vulnerable diagnostic tool to read secret API keys off the server.</p>
-      <div class="level-owasp">OWASP A03 — Injection</div>
-    </article>
-
-    <article class="level-card locked">
-      <div class="level-top">
-        <span class="level-num">LEVEL 06</span>
-        <span class="level-badge paid">BLACKSITE</span>
-      </div>
-      <h3>Price Manipulation</h3>
-      <p>Buy a $999 laptop for $0.01 by intercepting and modifying the checkout request.</p>
-      <div class="level-owasp">OWASP A04 — Insecure Design</div>
-    </article>
-
-    <article class="level-card locked">
-      <div class="level-top">
-        <span class="level-num">LEVEL 07</span>
-        <span class="level-badge paid">BLACKSITE</span>
-      </div>
-      <h3>Directory Traversal</h3>
-      <p>Escape the image directory using <code style="color:var(--text-dim);font-size:13px">../</code> sequences to read admin credentials off the server.</p>
-      <div class="level-owasp">OWASP A01 — Broken Access Control</div>
-    </article>
-
-    <article class="level-card locked">
-      <div class="level-top">
-        <span class="level-num">LEVEL 08</span>
-        <span class="level-badge paid">BLACKSITE</span>
-      </div>
-      <h3>Server-Side Request Forgery</h3>
-      <p>Make the server fetch its own AWS IAM credentials from the EC2 metadata service — just like the Capital One breach.</p>
-      <div class="level-owasp">OWASP A10 — SSRF</div>
-    </article>
-
-    <article class="level-card locked">
-      <div class="level-top">
-        <span class="level-num">LEVEL 09</span>
-        <span class="level-badge paid">BLACKSITE</span>
-      </div>
-      <h3>Mass Assignment</h3>
-      <p>Register as admin by injecting a hidden field into the signup request the form never exposes.</p>
-      <div class="level-owasp">OWASP A04 — Insecure Design</div>
-    </article>
-
-    <article class="level-card locked">
-      <div class="level-top">
-        <span class="level-num">LEVEL 10</span>
-        <span class="level-badge paid">BLACKSITE</span>
-      </div>
-      <h3>Password Reset Poisoning</h3>
-      <p>Hijack the admin's password reset link by poisoning the Host header in the reset request.</p>
-      <div class="level-owasp">OWASP A01 — Broken Access Control</div>
-    </article>
-
+<!-- Missions -->
+<section class="section" id="missions" aria-labelledby="missions-heading">
+  <div class="section-header">
+    <div class="section-tag">mission-list</div>
+    <h2 id="missions-heading">10 vulnerabilities.<br>All of them real.</h2>
+    <p class="section-sub">Drawn from the OWASP Top 10. The same bugs that breach production systems every day.</p>
   </div>
-  <p style="margin-top:24px; font-size:13px; color:#8fb08f;">
-    ⬡ Levels 6–10 are part of <strong style="color:#ff9500">Operation Blacksite</strong> — unlock all five together for <strong style="color:#fff">$0.99</strong>.
-  </p>
-</section>
 
-<hr class="divider">
+  <div class="missions-block">
+    <div class="missions-section-label">free access</div>
 
-<!-- Pricing -->
-<section class="section" id="pricing" aria-labelledby="pricing-heading">
-  <div class="section-label">Pricing</div>
-  <h2 id="pricing-heading">Start free. Go deeper for less than a coffee.</h2>
-  <p class="section-sub" style="margin-bottom:40px">No account required. Progress is saved in your browser.</p>
-  <div class="pricing-grid">
-
-    <div class="pricing-card">
-      <div class="pricing-name">Free Pack</div>
-      <div class="pricing-price"><sup>$</sup>0</div>
-      <div class="pricing-desc">5 levels covering the OWASP essentials</div>
-      <ul class="pricing-features">
-        <li>Information Leakage</li>
-        <li>Broken Access Control (IDOR)</li>
-        <li>Cross-Site Scripting (XSS)</li>
-        <li>SQL Injection</li>
-        <li>Command Injection</li>
-        <li>Unlimited hints</li>
-      </ul>
-      <a class="pricing-btn free-btn" href="/play">Play Free →</a>
+    <div class="mission-row">
+      <span class="mission-id">01</span>
+      <span class="mission-name">Information Leakage</span>
+      <span class="mission-owasp">OWASP A05 — Misconfiguration</span>
+      <span class="mission-access free">FREE</span>
+    </div>
+    <div class="mission-row">
+      <span class="mission-id">02</span>
+      <span class="mission-name">Broken Access Control (IDOR)</span>
+      <span class="mission-owasp">OWASP A01 — Access Control</span>
+      <span class="mission-access free">FREE</span>
+    </div>
+    <div class="mission-row">
+      <span class="mission-id">03</span>
+      <span class="mission-name">Cross-Site Scripting (XSS)</span>
+      <span class="mission-owasp">OWASP A03 — Injection</span>
+      <span class="mission-access free">FREE</span>
+    </div>
+    <div class="mission-row">
+      <span class="mission-id">04</span>
+      <span class="mission-name">SQL Injection</span>
+      <span class="mission-owasp">OWASP A03 — Injection</span>
+      <span class="mission-access free">FREE</span>
+    </div>
+    <div class="mission-row">
+      <span class="mission-id">05</span>
+      <span class="mission-name">Command Injection</span>
+      <span class="mission-owasp">OWASP A03 — Injection</span>
+      <span class="mission-access free">FREE</span>
     </div>
 
-    <div class="pricing-card featured">
-      <div class="pricing-name">Operation Blacksite</div>
-      <div class="pricing-price"><sup>$</sup>0.99</div>
-      <div class="pricing-desc">5 advanced levels — one-time unlock</div>
-      <ul class="pricing-features">
-        <li>Price Manipulation</li>
-        <li>Directory Traversal</li>
-        <li>Server-Side Request Forgery</li>
-        <li>Mass Assignment</li>
-        <li>Password Reset Poisoning</li>
-        <li>Instant access, no subscription</li>
-      </ul>
-      <a class="pricing-btn paid-btn" href="/play?unlock=1">Unlock for $0.99 →</a>
+    <div style="height:24px"></div>
+    <div class="missions-section-label blacksite">operation blacksite — $0.99 unlock</div>
+
+    <div class="mission-row locked">
+      <span class="mission-id">06</span>
+      <span class="mission-name">Price Manipulation</span>
+      <span class="mission-owasp">OWASP A04 — Insecure Design</span>
+      <span class="mission-access locked-tag">BLACKSITE</span>
+    </div>
+    <div class="mission-row locked">
+      <span class="mission-id">07</span>
+      <span class="mission-name">Directory Traversal</span>
+      <span class="mission-owasp">OWASP A01 — Access Control</span>
+      <span class="mission-access locked-tag">BLACKSITE</span>
+    </div>
+    <div class="mission-row locked">
+      <span class="mission-id">08</span>
+      <span class="mission-name">Server-Side Request Forgery</span>
+      <span class="mission-owasp">OWASP A10 — SSRF</span>
+      <span class="mission-access locked-tag">BLACKSITE</span>
+    </div>
+    <div class="mission-row locked">
+      <span class="mission-id">09</span>
+      <span class="mission-name">Mass Assignment</span>
+      <span class="mission-owasp">OWASP A04 — Insecure Design</span>
+      <span class="mission-access locked-tag">BLACKSITE</span>
+    </div>
+    <div class="mission-row locked">
+      <span class="mission-id">10</span>
+      <span class="mission-name">Password Reset Poisoning</span>
+      <span class="mission-owasp">OWASP A01 — Access Control</span>
+      <span class="mission-access locked-tag">BLACKSITE</span>
     </div>
 
+    <div class="blacksite-callout">
+      ⬡ Levels 6–10 are bundled as <strong>Operation Blacksite</strong> — five advanced attack chains, one unlock, <strong>$0.99</strong>. <a href="/play?unlock=1">Unlock now →</a>
+    </div>
   </div>
 </section>
 
-<hr class="divider">
+<hr class="rule">
+
+<!-- Access tiers -->
+<section class="section" id="access" aria-labelledby="access-heading">
+  <div class="section-header">
+    <div class="section-tag">access.conf</div>
+    <h2 id="access-heading">Start free.<br>Go deeper for $0.99.</h2>
+    <p class="section-sub">No account required. Progress is saved in your browser.</p>
+  </div>
+
+  <div class="tiers">
+    <div class="tier">
+      <div class="tier-header">
+        <span class="tier-name">FREE_PACK</span>
+        <span class="tier-price">$0</span>
+      </div>
+      <div class="tier-body">
+        <div class="tier-line"><span class="key">levels:</span><span class="val green">01 – 05</span></div>
+        <div class="tier-line"><span class="key">account:</span><span class="val">not required</span></div>
+        <div class="tier-line"><span class="key">hints:</span><span class="val">unlimited</span></div>
+        <div class="tier-line"><span class="key">shell:</span><span class="val green">full access</span></div>
+        <div class="tier-line"><span class="key">browser:</span><span class="val green">full access</span></div>
+        <div class="tier-line"><span class="key">cost:</span><span class="val green">free</span></div>
+      </div>
+      <div class="tier-footer">
+        <a class="tier-btn free-btn" href="/play">▶ Play Free →</a>
+      </div>
+    </div>
+
+    <div class="tier blacksite">
+      <div class="tier-header">
+        <span class="tier-name">BLACKSITE</span>
+        <span class="tier-price">$0.99</span>
+      </div>
+      <div class="tier-body">
+        <div class="tier-line"><span class="key">levels:</span><span class="val amber">06 – 10</span></div>
+        <div class="tier-line"><span class="key">payment:</span><span class="val">one-time</span></div>
+        <div class="tier-line"><span class="key">subscription:</span><span class="val amber">none</span></div>
+        <div class="tier-line"><span class="key">access:</span><span class="val amber">instant</span></div>
+        <div class="tier-line"><span class="key">cost:</span><span class="val amber">$0.99</span></div>
+      </div>
+      <div class="tier-footer">
+        <a class="tier-btn paid-btn" href="/play?unlock=1">Unlock Blacksite →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
 
 <!-- FAQ -->
 <section class="section" id="faq" aria-labelledby="faq-heading">
-  <div class="section-label">FAQ</div>
-  <h2 id="faq-heading" style="margin-bottom:40px">Common questions</h2>
+  <div class="section-header">
+    <div class="section-tag">faq</div>
+    <h2 id="faq-heading">Common questions</h2>
+  </div>
   <div class="faq">
-
     <div class="faq-item">
       <div class="faq-q">Is this safe to play? Am I actually hacking something?</div>
-      <div class="faq-a">No real systems are involved. Everything runs in a sandboxed simulator — the "server," the database, and the shell are all virtual. You can't break anything or affect anyone else.</div>
+      <div class="faq-a">No real systems are involved. The server, database, and shell are all simulated. You can't break anything or affect anyone else.</div>
     </div>
-
     <div class="faq-item">
       <div class="faq-q">Do I need any prior hacking or security knowledge?</div>
-      <div class="faq-a">No. Level 1 assumes you know how to use a terminal. If you've written any backend code, you'll be fine. Hints are available whenever you're stuck.</div>
+      <div class="faq-a">No. Level 1 assumes you know how to use a terminal. If you've written any backend code, you'll be fine. Hints are available whenever you get stuck.</div>
     </div>
-
     <div class="faq-item">
-      <div class="faq-q">What's the difference between HackLab and TryHackMe or HackTheBox?</div>
-      <div class="faq-a">Those platforms are broader and deeper — full Linux machines, network challenges, CTFs. HackLab is laser-focused on web application vulnerabilities and designed for developers, not security specialists. It takes an hour, not weeks.</div>
+      <div class="faq-q">How is this different from TryHackMe or HackTheBox?</div>
+      <div class="faq-a">Those platforms are broader — full Linux machines, network challenges, CTFs. HackLab is laser-focused on web application vulnerabilities and built for developers, not security specialists. It takes an hour, not weeks.</div>
     </div>
-
     <div class="faq-item">
       <div class="faq-q">Will my progress be saved if I close the tab?</div>
-      <div class="faq-a">Yes — your session is stored in localStorage. As long as you use the same browser, your progress persists. Sessions expire after 30 minutes of inactivity on the server side, but the UI state is always restored.</div>
+      <div class="faq-a">Yes — progress is stored locally. As long as you use the same browser, your stage completion and terminal history persist across sessions and server restarts.</div>
     </div>
-
     <div class="faq-item">
       <div class="faq-q">Can I use this to teach a class or team?</div>
-      <div class="faq-a">Absolutely. Each player gets an isolated session. Just share the link — no accounts or setup needed. Reach out if you want volume access for a team or course.</div>
+      <div class="faq-a">Absolutely. Each player gets an isolated session. Just share the link — no accounts or setup needed.</div>
     </div>
-
   </div>
 </section>
 
-<hr class="divider">
+<hr class="rule">
 
 <!-- Final CTA -->
-<section class="section" style="text-align:center; padding-top:64px; padding-bottom:80px">
-  <h2 style="margin-bottom:16px">Ready to start hacking?</h2>
-  <p class="section-sub" style="margin:0 auto 36px">No account. No download. Open the terminal and go.</p>
-  <a class="btn-primary" href="/play" style="font-size:18px; padding:16px 40px">▶ Play Free Now</a>
-</section>
+<div class="final-cta">
+  <div class="final-cta-text">
+    <h2>Ready to start hacking?</h2>
+    <p>Open the terminal. Find the bug. Ship better code.</p>
+  </div>
+  <div class="final-cta-action">
+    <a class="btn-primary" href="/play" style="font-size:16px; padding:15px 36px">▶ Enter the Lab</a>
+    <div class="hero-note" style="margin-top:10px; text-align:center">// free · no account</div>
+  </div>
+</div>
 
 <!-- Footer -->
 <footer class="footer">
   <div class="footer-logo">HACK<span style="color:#fff">LAB</span></div>
   <div class="footer-links">
-    <a href="/play">Play</a>
-    <a href="#levels">Levels</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-    <a href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+    <a href="/play">play</a>
+    <a href="#missions">missions</a>
+    <a href="#access">access</a>
+    <a href="#faq">faq</a>
+    <a href="https://buymeacoffee.com/tylerle" target="_blank" rel="noopener">☕ coffee</a>
   </div>
-  <div class="footer-copy">© 2025 HackLab · Learn web security by exploiting it · Built by Tyler Le</div>
+  <div class="footer-copy">// built by Tyler Le · 2025</div>
 </footer>
 
 </body>
